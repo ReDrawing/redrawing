@@ -210,7 +210,7 @@ class OpenPose_Light():
                 
                 joint_type = OpenPose_Light.keypointList[i][1]
 
-                bodypose.set_keypoint(joint_type, pose.keypoints[i][0], pose.keypoints[i][1])
+                bodypose.add_keypoint(joint_type, pose.keypoints[i][0], pose.keypoints[i][1])
             
             bodyposes.append(bodypose)
 

@@ -25,3 +25,4 @@ while(True):
     for pose in poses:
         print("Enviando pose")
         send_data(pose)
+        

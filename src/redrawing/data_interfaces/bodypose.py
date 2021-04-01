@@ -45,15 +45,15 @@ class BodyPose(Data):
                 @param pixels_space (boolean): True if the keypoints are in camera pixel (2D) space, false if its in 3D metric space
                 @param frame_id (string): The name of the coordinate system where keypoints are
         '''
-
-        self.__pixel_space = pixel_space
-        self.__keypoints = {}
-        self.__keypoints_names = BodyPose.keypoints_names
-        self.__frame_id = frame_id
+        object.__setattr__(self,"_keypoints",{})
+        self._pixel_space = pixel_space
+        self._keypoints_names = BodyPose.keypoints_names
+        self._frame_id = frame_id
 
         pass
-
-    def set_keypoint(self, name, x, y, z=1.0):
+    
+    
+    def add_keypoint(self, name, x, y, z=1.0):
         '''!
             Define the pose of a keypoint
 
@@ -65,13 +65,25 @@ class BodyPose(Data):
 
         '''
 
-        if name not in self.__keypoints_names:
+        if name not in self._keypoints_names:
             raise Exception
 
 
-        self.__keypoints[name] = [float(x),float(y),float(z)]
+        self._keypoints[name] = [float(x),float(y),float(z)]
 
         pass
+
+    def __getattr__(self, name):
+        try:
+            return self._keypoints[name]
+        except KeyError:
+            raise AttributeError("BodyPose has no keypoint or attribute "+str(name))
+
+    def __setattr__(self, name, value):
+        if not name in BodyPose.keypoints_names:
+            return super().__setattr__(name, value)
+        else:
+            self._keypoints[name] = value
 
     def get_keypoint(self, name):
         '''!
@@ -84,4 +96,15 @@ class BodyPose(Data):
                 @return keypoint (list of float): keypoints position
         '''
 
-        return self.__keypoints[name]
+        return self._keypoints[name]
+
+    def del_keypoint(self, name):
+        '''!
+            Delete a keypoint pose
+
+            Parameters:
+                @param name (string): the name of the keypoints. Must be in keypoints_names list
+        '''
+
+
+        del self.keypoints[name]

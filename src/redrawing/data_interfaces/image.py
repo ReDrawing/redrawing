@@ -7,7 +7,7 @@ class Image(Data):
         Data class for image messages
     '''
 
-    def __init__(self, frame_id = "UNKNOWN"):
+    def __init__(self, frame_id = "UNKNOWN", image = np.asarray([],dtype=np.uint8)):
         '''!
             Image constructor
 
@@ -15,10 +15,21 @@ class Image(Data):
                 @param frame_id (string): the frame where the camera that captured the image is
         '''
 
-        self.__frame_id = frame_id
-        self.__image = np.asarray([],dtype=np.uint8)
+        self._frame_id = frame_id
+        self._image = image
     
-    def set_image(self, image):
+    @property
+    def image(self):
+        '''!
+            Gets the image data
+
+            Returns
+                @return image (numpy.array): the image data
+        '''
+        return self._image
+    
+    @image.setter
+    def image(self, image):
         '''!
             Set the image data
 
@@ -28,25 +39,17 @@ class Image(Data):
         '''
 
         if isinstance(image, np.ndarray):
-            self.__image = image.astype(np.uint8)
+            self._image = image.astype(np.uint8)
         else:
-            self.__image = image.array(image, dtype=np.uint8)
-    
-    def get_image(self):
-        '''!
-            Gets the image data
+            self._image = image.array(image, dtype=np.uint8)
 
-            Returns
-                @return image (numpy.array): the image data
-        '''
-
-        return self.__image
-
-    def get_frame_id(self):
+    @property
+    def frame_id(self):
         '''!
             Gets the frame id
 
             Returns
                 @return frame_id (string): the frame where the camera that captured the image is
         '''
-        return self.__frame_id
+
+        return self._frame_id

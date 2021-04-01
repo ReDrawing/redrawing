@@ -18,24 +18,24 @@ from ..third_models.lightweight_human_modules.image_tools import normalize, pad_
 class OpenPose_Light():
     
     ## Dicionário que mapeia os keypoints do modelo para a mensagem
-    keypointDict = {'nose'  : BodyPose.keypoint_dict["NOSE"], 
-                    'neck'  : BodyPose.keypoint_dict["NECK"],
-                    'r_sho' : BodyPose.keypoint_dict["SHOULDER_R"], 
-                    'r_elb' : BodyPose.keypoint_dict["ELBOW_R"], 
-                    'r_wri' : BodyPose.keypoint_dict["WRIST_R"],   
-                    'l_sho' : BodyPose.keypoint_dict["SHOULDER_L"], 
-                    'l_elb' : BodyPose.keypoint_dict["ELBOW_L"], 
-                    'l_wri' : BodyPose.keypoint_dict["WRIST_L"],
-                    'r_hip' : BodyPose.keypoint_dict["HIP_R"], 
-                    'r_knee': BodyPose.keypoint_dict["KNEE_R"], 
-                    'r_ank' : BodyPose.keypoint_dict["ANKLE_R"], 
-                    'l_hip' : BodyPose.keypoint_dict["HIP_L"], 
-                    'l_knee': BodyPose.keypoint_dict["KNEE_L"], 
-                    'l_ank' : BodyPose.keypoint_dict["ANKLE_L"],
-                    'r_eye' : BodyPose.keypoint_dict["EYE_R"], 
-                    'l_eye' : BodyPose.keypoint_dict["EYE_L"],
-                    'r_ear' : BodyPose.keypoint_dict["EAR_R"], 
-                    'l_ear' : BodyPose.keypoint_dict["EAR_L"]}
+    keypointDict = {'nose'  : "NOSE"      , 
+                    'neck'  : "NECK"      ,
+                    'r_sho' : "SHOULDER_R", 
+                    'r_elb' : "ELBOW_R"   , 
+                    'r_wri' : "WRIST_R"   ,   
+                    'l_sho' : "SHOULDER_L", 
+                    'l_elb' : "ELBOW_L"   , 
+                    'l_wri' : "WRIST_L"   ,
+                    'r_hip' : "HIP_R"     , 
+                    'r_knee': "KNEE_R"    , 
+                    'r_ank' : "ANKLE_R"   , 
+                    'l_hip' : "HIP_L"     , 
+                    'l_knee': "KNEE_L"    , 
+                    'l_ank' : "ANKLE_L"   ,
+                    'r_eye' : "EYE_R"     , 
+                    'l_eye' : "EYE_L"     ,
+                    'r_ear' : "EAR_R"     , 
+                    'l_ear' : "EAR_L"     }
 
     ## Lista que mapeia os keypoints do modelo para a mensagem.
     keypointList = list(keypointDict.items())

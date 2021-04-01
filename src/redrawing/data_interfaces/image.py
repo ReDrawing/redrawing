@@ -1,6 +1,6 @@
 import numpy as np
 
-from data_class import Data
+from redrawing.data_interfaces.data_class import Data
 
 class Image(Data):
     def __init__(self, frame_id = "UNKNOWN"):

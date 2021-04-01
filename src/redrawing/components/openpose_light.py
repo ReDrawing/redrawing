@@ -6,7 +6,7 @@ import cv2 as cv
 import torch
 
 from redrawing.data_interfaces.bodypose import BodyPose
-
+from redrawing.data_interfaces.image import Image
 
 import redrawing.third_models.lightweight_human_modules as lhm 
 from ..third_models.lightweight_human_modules.models.with_mobilenet import PoseEstimationWithMobileNet
@@ -17,7 +17,7 @@ from ..third_models.lightweight_human_modules.image_tools import normalize, pad_
 
 class OpenPose_Light():
     
-    ## Dicionário que mapeia os keypoints do modelo para a mensagem
+    ## Dictionary that maps the model keypoints to the message
     keypointDict = {'nose'  : "NOSE"      , 
                     'neck'  : "NECK"      ,
                     'r_sho' : "SHOULDER_R", 
@@ -37,10 +37,17 @@ class OpenPose_Light():
                     'r_ear' : "EAR_R"     , 
                     'l_ear' : "EAR_L"     }
 
-    ## Lista que mapeia os keypoints do modelo para a mensagem.
+    ## List that maps the model keypoints to the message.
     keypointList = list(keypointDict.items())
 
     def __init__(self, gpu=False):
+        '''!
+            OpenPose_Light constructor
+
+            Parameters:
+                @param gpu (boolean) - True if inference should be made using GPU
+        '''
+
         self.gpu = gpu
 
         lhmPath = os.path.abspath(lhm.__file__)
@@ -57,7 +64,7 @@ class OpenPose_Light():
 
     def imageFormat(self, img, net_input_height_size, stride, pad_value, img_mean, img_scale):
         '''!
-            Formata a imagem para o formato necessário para a rede
+            Formats the image to the format required for the network
             
         '''
 
@@ -73,14 +80,14 @@ class OpenPose_Light():
     
     def do_inference(self, img, upsample_ratio, padded_img):
         '''!
-            Realiza a inferência.
+            Makes the inference
 
-            Paramêtros:
-                @param upsample_ratio - Tava de redimensionamento
-                @param padded_img (numpy array) - Imagem Formatada
+            Parameters:
+                @param upsample_ratio - Resizing rate
+                @param padded_img (numpy.array) - Formatted Image
 
-            Retorno:
-                @return heatmap - Heatmap de onde estão keypoints
+            Returns:
+                @return heatmap - Heatmap where keypoints are
                 @return pafs - 
                 
         '''
@@ -105,18 +112,18 @@ class OpenPose_Light():
     def inference(self, img, net_input_height_size, stride, upsample_ratio,
                pad_value=(0, 0, 0), img_mean=np.array([128, 128, 128], np.float32), img_scale=np.float32(1/256)):
         '''!
-            Formata a imagem original para realizar a infêrencia.
+            Formats the original image and makes the inference
 
-            Paramêtros:
-                @param img (numpy array) - Imagem Original
-                @param net_input_height_size - Dimensão de altura do input da rede
+            Parameters:
+                @param img (numpy.array) - Original image
+                @param net_input_height_size - Height dimension of the network input
                 @param stride - 
                 @param upsample_ratio - 
 
-            Retorno:
-                @return heatmap - Heatmap de onde estão keypoints
+            Returns:
+                @return heatmap - Heatmap of where the keypoints are
                 @return pafs -
-                @return scale - Escala da Imagem modificada
+                @return scale - Scale of image
                 @return pad - 
                 
         '''
@@ -128,14 +135,14 @@ class OpenPose_Light():
 
     def getPose(self, img, height_size=256):
         '''!
-            Realiza a inferência e gera o vetor de poses corporais.
+            Performs the inference and generates the vector of body poses.
 
-            Parâmetros
-                @param img (numpy array) - imagem para realizar a inferência
+            Parameters
+                @param img (numpy array) - image for inference
                 @param height_size (int)
 
-            Retorno
-                @return poses (list) - vetor de poses
+            Returns
+                @return poses (list of lightweight_human_modules.pose.Pose) - list of poses
         '''
            
         stride = 8
@@ -171,6 +178,15 @@ class OpenPose_Light():
     pass
 
     def process(self, img):
+        '''!
+            Processes an image making the inference and returns the found BodyPoses
+
+            Parameters
+                @param img (numpy.array/data_interfaces.Image) - image
+
+            Returns
+                @return poses (list of data_interfaces.BodyPose) - list of poses
+        '''
         
         frame_id = "UNKNOW"
 

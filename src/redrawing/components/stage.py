@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
 
-class Stage(ABC):
 
+class Stage(ABC):
+    '''!
+        @todo Stage: ser possível criar inputs e outputs que são vetores de classes Data
+        @todo Stage: verificar se tipo de entrada e saída são instancias de Data
+    '''
 
     def __init__(self):
         self.input_dict = {}

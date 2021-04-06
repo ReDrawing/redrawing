@@ -12,6 +12,25 @@ class IMU(Data):
         self._accel = np.zeros(3, dtype=np.float64)
         self._gyro = np.zeros(3, dtype=np.float64)
         self._mag = np.zeros(3, dtype=np.float64)
+        self._time = 0.0
+
+    @property
+    def time(self):
+        return time
+
+    @time.setter
+    def time(self, value):
+        setted = False
+
+        if isinstance(value, float):
+            self._time = value
+            setted = True
+        elif isinstance(value, int):
+            self._time = float(value)
+            setted = True
+
+        if not setted:
+            raise ValueError("'time' must be a float or integer")
 
     @property
     def accel(self):

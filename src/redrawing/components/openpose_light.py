@@ -7,6 +7,7 @@ import torch
 
 from redrawing.data_interfaces.bodypose import BodyPose
 from redrawing.data_interfaces.image import Image
+from redrawing.components.stage import Stage
 
 import redrawing.third_models.lightweight_human_modules as lhm 
 from ..third_models.lightweight_human_modules.models.with_mobilenet import PoseEstimationWithMobileNet
@@ -15,7 +16,7 @@ from ..third_models.lightweight_human_modules.load_state import load_state
 from ..third_models.lightweight_human_modules.pose import Pose, track_poses
 from ..third_models.lightweight_human_modules.image_tools import normalize, pad_width
 
-class OpenPose_Light():
+class OpenPose_Light(Stage):
     
     ## Dictionary that maps the model keypoints to the message
     keypointDict = {'nose'  : "NOSE"      , 
@@ -47,6 +48,9 @@ class OpenPose_Light():
             Parameters:
                 @param gpu (boolean) - True if inference should be made using GPU
         '''
+        super().__init__()
+        self.addInput("image", Image)
+        self.addOutput("bodyposes", list)
 
         self.gpu = gpu
 
@@ -177,7 +181,7 @@ class OpenPose_Light():
 
     pass
 
-    def process(self, img):
+    def process(self):
         '''!
             Processes an image making the inference and returns the found BodyPoses
 
@@ -187,14 +191,11 @@ class OpenPose_Light():
             Returns
                 @return poses (list of data_interfaces.BodyPose) - list of poses
         '''
-        
-        frame_id = "UNKNOW"
 
-        if isinstance(img, np.ndarray):
-            pass
-        elif isinstance(img, Image):
-            frame_id = img.get_frame_id()
-            img = img.get_image()
+        img = self._getInput("image")
+
+        frame_id = img.frame_id
+        img = img.image
 
         poses = self.getPose(img)
 
@@ -214,5 +215,6 @@ class OpenPose_Light():
             
             bodyposes.append(bodypose)
 
-        return bodyposes
+
+        self._setOutput(bodyposes, "bodyposes")
 

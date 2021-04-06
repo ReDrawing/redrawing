@@ -3,6 +3,7 @@ import numpy as np
 
 from redrawing.components.openpose_light import OpenPose_Light
 from redrawing.communication.udp import send_data
+from redrawing.data_interfaces.image import Image
 
 cap = cv.VideoCapture(1)
 
@@ -19,8 +20,13 @@ while(True):
         print("Frame não disponível")
         exit()
 
-    poses = opl.process(frame)
+    img = Image(image=frame)
 
+    opl.setInput(img, "image")
+
+    opl.process()
+
+    poses = opl.getOutput("bodyposes")
 
     for pose in poses:
         print("Enviando pose")

@@ -46,8 +46,11 @@ class IMUReceiver(Stage):
 
         imu = IMU(frame_id=self._frame_id)
         
+        for i in range(len(mag)):
+            mag[i] *= 0.000001
+
         if not time is None:
-            imu.time = time
+            imu.time = float(time)/1000.0
         if not accel is None:
             imu.accel = accel
         if not gyro is None:

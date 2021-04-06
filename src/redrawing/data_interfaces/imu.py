@@ -15,8 +15,12 @@ class IMU(Data):
         self._time = 0.0
 
     @property
+    def frame_id(self):
+        return self._frame_id
+
+    @property
     def time(self):
-        return time
+        return self._time
 
     @time.setter
     def time(self, value):
@@ -98,7 +102,7 @@ class Orientation(Data):
         self._frame_id = frame_id
 
         self._orientation = np.zeros(4, dtype=np.float64)
-        quat[3] = 1.0
+        self._orientation[3] = 1.0
     
     @property
     def orientation(self):

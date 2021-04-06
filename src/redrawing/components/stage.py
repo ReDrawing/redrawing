@@ -5,6 +5,7 @@ class Stage(ABC):
     '''!
         @todo Stage: ser possível criar inputs e outputs que são vetores de classes Data
         @todo Stage: verificar se tipo de entrada e saída são instancias de Data
+        @todo Stage: adicionar variável para indicar que uma nova entrada foi recebida
     '''
 
     def __init__(self):

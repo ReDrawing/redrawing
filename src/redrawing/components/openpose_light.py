@@ -137,23 +137,9 @@ class OpenPose_Light(Stage):
         heatmaps, pafs = self.do_inference(img, upsample_ratio, padded_img)  
         return heatmaps, pafs, scale, pad
 
-    def getPose(self, img, height_size=256):
-        '''!
-            Performs the inference and generates the vector of body poses.
-
-            Parameters
-                @param img (numpy array) - image for inference
-                @param height_size (int)
-
-            Returns
-                @return poses (list of lightweight_human_modules.pose.Pose) - list of poses
-        '''
-           
-        stride = 8
-        upsample_ratio = 4
+    def resultToPoses(self, heatmaps, pafs, scale, stride, pad, upsample_ratio):
         num_keypoints = Pose.num_kpts
-        heatmaps, pafs, scale, pad = self.inference(img, height_size, stride, upsample_ratio)
-
+        
         total_keypoints_num = 0
         all_keypoints_by_type = []
         for kpt_idx in range(num_keypoints):  # 19th for bg
@@ -179,7 +165,47 @@ class OpenPose_Light(Stage):
 
         return all_poses
 
+    def getPose(self, img, height_size=256):
+        '''!
+            Performs the inference and generates the vector of body poses.
+
+            Parameters
+                @param img (numpy array) - image for inference
+                @param height_size (int)
+
+            Returns
+                @return poses (list of lightweight_human_modules.pose.Pose) - list of poses
+        '''
+           
+        stride = 8
+        upsample_ratio = 4
+        
+        heatmaps, pafs, scale, pad = self.inference(img, height_size, stride, upsample_ratio)
+
+        return resultToPoses(heatmaps, pafs, scale, stride, pad, upsample_ratio)
+
+        
+
     pass
+
+    def posesToData(self,poses):
+        bodyposes = []
+
+        for pose in poses:
+            bodypose = BodyPose(pixel_space = True)
+
+            for i in range(18):
+            
+                if pose.keypoints[i][0] == -1:
+                    continue
+                
+                joint_type = OpenPose_Light.keypointList[i][1]
+
+                bodypose.add_keypoint(joint_type, pose.keypoints[i][0], pose.keypoints[i][1])
+            
+            bodyposes.append(bodypose)
+
+        return bodyposes
 
     def process(self):
         '''!
@@ -199,22 +225,9 @@ class OpenPose_Light(Stage):
 
         poses = self.getPose(img)
 
-        bodyposes = []
+        bodyposes = posesToData(poses)
 
-        for pose in poses:
-            bodypose = BodyPose(pixel_space = True)
-
-            for i in range(18):
-            
-                if pose.keypoints[i][0] == -1:
-                    continue
-                
-                joint_type = OpenPose_Light.keypointList[i][1]
-
-                bodypose.add_keypoint(joint_type, pose.keypoints[i][0], pose.keypoints[i][1])
-            
-            bodyposes.append(bodypose)
-
+    
 
         self._setOutput(bodyposes, "bodyposes")
 

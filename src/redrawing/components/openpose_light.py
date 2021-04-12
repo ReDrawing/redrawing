@@ -138,6 +138,7 @@ class OpenPose_Light(Stage):
         return heatmaps, pafs, scale, pad
 
     def resultToPoses(self, heatmaps, pafs, scale, stride, pad, upsample_ratio):
+        
         num_keypoints = Pose.num_kpts
         
         total_keypoints_num = 0
@@ -182,7 +183,7 @@ class OpenPose_Light(Stage):
         
         heatmaps, pafs, scale, pad = self.inference(img, height_size, stride, upsample_ratio)
 
-        return resultToPoses(heatmaps, pafs, scale, stride, pad, upsample_ratio)
+        return self.resultToPoses(heatmaps, pafs, scale, stride, pad, upsample_ratio)
 
         
 
@@ -225,7 +226,7 @@ class OpenPose_Light(Stage):
 
         poses = self.getPose(img)
 
-        bodyposes = posesToData(poses)
+        bodyposes = self.posesToData(poses)
 
     
 

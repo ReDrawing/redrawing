@@ -66,7 +66,7 @@ class BodyPose(Data):
         '''
 
         if name not in self._keypoints_names:
-            raise Exception
+            raise AttributeError("BodyPose has no keypoint "+str(name))
 
 
         self._keypoints[name] = [float(x),float(y),float(z)]

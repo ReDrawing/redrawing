@@ -53,8 +53,10 @@ class OAK_Stage(Stage):
             return
 
         pipeline = dai.Pipeline()
-
+        
         rgb_size = [0,0]
+        if self._configs["rgb_out"] == True:
+            rgb_size = list(self._configs["rgb_resolution"])
         left_size = [0,0]
         right_size = [0,0]
         nn_list = {}
@@ -122,10 +124,10 @@ class OAK_Stage(Stage):
 
             if list(nn_size) != target_size:
                 img_manip = pipeline.createImageManip()
-                img_manip.setNumFramesPool(1)
                 img_manip.setResize(nn_size[0],nn_size[1])
-                cam.out.link(img_manip.inputImage)
+                cam.preview.link(img_manip.inputImage)
                 img_manip.out.link(nn_list[nn].input)
+                
                 
             else:
                 cam.preview.link(nn_list[nn].input)

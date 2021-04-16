@@ -1,11 +1,14 @@
 import cv2 as cv
 import numpy as np
 
-from redrawing.components.oak import OAK_Pose
+from redrawing.components.oak import OAK_Stage
 from redrawing.communication.udp import send_data
 from redrawing.data_interfaces.bodypose import BodyPose
 
-oak = OAK_Pose()
+
+oak_configs = {"rgb_out" : True, "rgb_resolution": (456,256), "nn_enable":{"bodypose":True}}
+
+oak = OAK_Stage(oak_configs)
 
 oak.setup()
 
@@ -13,7 +16,7 @@ while True:
     
     oak.process()
 
-    poses = oak.getOutput("bodyposes")
+    poses = oak.getOutput("bodypose")
     image = oak.getOutput("rgb")
     img = None
 

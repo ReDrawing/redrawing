@@ -4,121 +4,178 @@ import depthai as dai
 import numpy as np
 
 from redrawing.components.stage import Stage
+from redrawing.components.oak_constants import *
 from redrawing.data_interfaces.image import Image
 from redrawing.data_interfaces.bodypose import BodyPose
 import redrawing.third_models.oak_models as oak_models
-from redrawing.third_models.oak_models.human_pose import process_output
+from redrawing.third_models.oak_models.human_pose import bodypose_configs
 
-class OAK_Pose(Stage):
+class OAK_Stage(Stage):
 
-    keypointDict = {'Nose'  : "NOSE"      , 
-                    'Neck'  : "NECK"      ,
-                    'R-Sho' : "SHOULDER_R", 
-                    'R-Elb' : "ELBOW_R"   , 
-                    'R-Wr' : "WRIST_R"   ,   
-                    'L-Sho' : "SHOULDER_L", 
-                    'L-Elb' : "ELBOW_L"   , 
-                    'L-Wr' : "WRIST_L"   ,
-                    'R-Hip' : "HIP_R"     , 
-                    'R-Knee': "KNEE_R"    , 
-                    'R-Ank' : "ANKLE_R"   , 
-                    'L-Hip' : "HIP_L"     , 
-                    'L-Knee': "KNEE_L"    , 
-                    'L-Ank' : "ANKLE_L"   ,
-                    'R-Eye' : "EYE_R"     , 
-                    'L-Eye' : "EYE_L"     ,
-                    'R-Ear' : "EAR_R"     , 
-                    'L-Ear' : "EAR_L"     }
+    
+    COLOR=1
+    LEFT=2
+    RIGHT=3
 
     configs_default = {"frame_id": "oak",
                         "rgb_out": False,
                         "rgb_resolution": (1920,1080),
-                        "bodypose" : False}
+                        "nn_enable":{"bodypose":True},
+                        "nn_config": {"bodypose":bodypose_configs}
+                    }
 
     def __init__(self, configs={}):
         super().__init__(configs)
-        self.addOutput("bodyposes", list)
-        self.addOutput("rgb", Image)
+
+        self._config_lock = True
+
+        for nn in self._configs["nn_enable"]:
+            if self._configs["nn_enable"][nn] == True:
+                self.addOutput(nn, list)
+        if(self._configs["rgb_out"] == True):
+            self.addOutput("rgb", Image)
 
         self._device = None
         self._nnQueeu = None
+        self._cameraQueeu = None
         
     
     def setup(self):
+        '''!
+            Configs the stage, creating the pipeline for the OAK
+
+            @todo Criar nó para as câmeras monocromáticas
+        '''
 
         self._config_lock = True
 
         if self._device is not None:
             return
 
-        blob_path = os.path.abspath(oak_models.__file__)
-        blob_path = blob_path[:-11]
-        blob_path += "human-pose-estimation-0001_openvino_2021.2_6shave.blob"
-
         pipeline = dai.Pipeline()
 
-        #Nó da câmera
-        cam = pipeline.createColorCamera()
-        cam.setPreviewSize(456, 256)
-        cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-        cam.setInterleaved(False)
-        cam.setBoardSocket(dai.CameraBoardSocket.RGB)
+        rgb_size = [0,0]
+        left_size = [0,0]
+        right_size = [0,0]
+        nn_list = {}
 
-        #Nó da rede neural
-        pose_nn = pipeline.createNeuralNetwork()
-        pose_nn.setBlobPath(blob_path)
-        pose_nn.setNumInferenceThreads(2)
-        pose_nn.input.setQueueSize(1)
-        pose_nn.input.setBlocking(False)
+        for nn in self._configs["nn_enable"]:
+            base_path = os.path.abspath(oak_models.__file__)
+            base_path = base_path[:-11]
 
-        #Links
-        cam.preview.link(pose_nn.input)
+            if self._configs["nn_enable"][nn] == True:
 
-        #X-links de saída
-        pose_nn_xout = pipeline.createXLinkOut()
-        pose_nn_xout.setStreamName("pose_nn")
-        pose_nn.out.link(pose_nn_xout.input)
+                blob_path = base_path + self._configs["nn_config"][nn]["blob_name"] +".blob"
 
-        cam_xout = pipeline.createXLinkOut()
-        cam_xout.setStreamName("rgb")
-        cam.preview.link(cam_xout.input)
+                nn_node = pipeline.createNeuralNetwork()
+                nn_node.setBlobPath(blob_path)
+                nn_node.setNumInferenceThreads(2)
+                nn_node.input.setQueueSize(1)
+                nn_node.input.setBlocking(False)
+                
+                size = self._configs["nn_config"][nn]["img_size"]
+                target_size = None
+
+                if  self._configs["nn_config"][nn]["img_type"] == OAK_Stage.COLOR:
+                    target_size = rgb_size
+                elif self._configs["nn_config"][nn]["img_type"] == OAK_Stage.LEFT:
+                    target_size = left_size
+                elif self._configs["nn_config"][nn]["img_type"] == OAK_Stage.RIGHT:
+                    target_size = right_size
+                
+                if target_size is not None:
+                    if size[0] > target_size[0]:
+                        rgb_size[0] = size[0]
+                    if size[1] > target_size[1]:
+                        rgb_size[1] = size[1]
+
+                nn_list[nn] = nn_node
+
+        rgb_cam = None
+        left_cam = None
+        right_cam = None
+        if rgb_size != [0,0]:
+            rgb_cam = pipeline.createColorCamera()
+            rgb_cam.setPreviewSize(rgb_size[0], rgb_size[1])
+            rgb_cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+            rgb_cam.setInterleaved(False)
+            rgb_cam.setBoardSocket(dai.CameraBoardSocket.RGB)
+        
+
+        nn_xout = {}
+
+        for nn in nn_list:
+            target_size = None
+            nn_size = self._configs["nn_config"][nn]["img_size"]
+            img_type = self._configs["nn_config"][nn]["img_type"]
+            cam = None
+        
+            if  img_type == OAK_Stage.COLOR:
+                target_size = rgb_size
+                cam = rgb_cam
+            elif img_type == OAK_Stage.LEFT:
+                target_size = left_size
+                cam = left_cam
+            elif img_type == OAK_Stage.RIGHT:
+                target_size = right_size
+                cam = right_cam
+
+            if list(nn_size) != target_size:
+                img_manip = pipeline.createImageManip()
+                img_manip.setNumFramesPool(1)
+                img_manip.setResize(nn_size[0],nn_size[1])
+                cam.out.link(img_manip.inputImage)
+                img_manip.out.link(nn_list[nn].input)
+                
+            else:
+                cam.preview.link(nn_list[nn].input)
+
+            xout = pipeline.createXLinkOut()
+            xout.setStreamName(nn)
+            nn_list[nn].out.link(xout.input)
+            nn_xout[nn] = xout
+            
+        cam_xout = {}
+        if rgb_cam is not None:
+            xout = pipeline.createXLinkOut()
+            xout.setStreamName("rgb")
+            rgb_cam.preview.link(xout.input)
+            cam_xout["rgb"] = xout
 
         self._device = dai.Device(pipeline)
         self._device.startPipeline()
 
-        self._nnQueeu = self._device.getOutputQueue("pose_nn", maxSize=1, blocking=False)
-        self._rgbQueeu = self._device.getOutputQueue("rgb", maxSize=1, blocking=False)
+        nn_queeu = {}
+        cam_queeu = {}
 
+        for nn in nn_xout:
+            nn_queeu[nn] = self._device.getOutputQueue(nn, maxSize=1, blocking=False)
+        
+        for cam in cam_xout:
+            cam_queeu[cam] = self._device.getOutputQueue(cam, maxSize=1, blocking=False)
+
+        self._nn_queeu = nn_queeu
+        self._cam_queeu = cam_queeu
+
+    
 
     def process(self):
-        nn_output = self._nnQueeu.tryGet()
-        rbg_output = self._rgbQueeu.tryGet()
-
-        if nn_output is not None:
-            poses = process_output(nn_output, 256, 456)
-            
-            
-
-            bodyposes = []
-            for pose in poses:
-                bodypose = BodyPose(pixel_space=True, frame_id=self._configs["frame_id"])
-
-                for keypoint_name in pose:
-                    keypoint_key = OAK_Pose.keypointDict[keypoint_name]
-                    bodypose.add_keypoint(keypoint_key, pose[keypoint_name][0], pose[keypoint_name][1])    
-
-                bodyposes.append(bodypose)
-            
-            self._setOutput(bodyposes, "bodyposes")
-
         
+        for nn in self._nn_queeu:
+            nn_output = self._nn_queeu[nn].tryGet()
+            
+            if nn_output is not None:
+                self._configs["nn_config"][nn]["process_function"](self, nn_output)
+        
+        for cam in self._cam_queeu:
+            cam_output = self._cam_queeu[cam].tryGet()
 
-        if rbg_output is not None:
-            rgb_img = rbg_output.getCvFrame()
+            if cam_output is not None:
+                img = cam_output.getCvFrame()
 
-            img = Image("oak", rgb_img)
+                img = Image(self._configs["frame_id"], img)
 
-            self._setOutput(img, "rgb")
+                self._setOutput(img, cam)
 
 
     def __del__(self):

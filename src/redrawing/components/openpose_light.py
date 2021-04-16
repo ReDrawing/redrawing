@@ -41,18 +41,20 @@ class OpenPose_Light(Stage):
     ## List that maps the model keypoints to the message.
     keypointList = list(keypointDict.items())
 
-    def __init__(self, gpu=False):
+    configs_default = {"frame_id": "PASS",
+                        "gpu": False
+                        }
+
+    def __init__(self, configs={}):
         '''!
             OpenPose_Light constructor
 
             Parameters:
-                @param gpu (boolean) - True if inference should be made using GPU
+                @param configs (dict) - Dictionary of configs changes. See class configs_default for list of configs
         '''
-        super().__init__()
+        super().__init__(configs)
         self.addInput("image", Image)
         self.addOutput("bodyposes", list)
-
-        self.gpu = gpu
 
         lhmPath = os.path.abspath(lhm.__file__)
         lhmPath = lhmPath[:-11]
@@ -63,7 +65,7 @@ class OpenPose_Light(Stage):
         load_state(self.net, checkpoint)
 
         self.net = self.net.eval()
-        if self.gpu :
+        if self._configs["gpu"] :
             self.net = self.net.cuda()
 
     def imageFormat(self, img, net_input_height_size, stride, pad_value, img_mean, img_scale):
@@ -98,7 +100,7 @@ class OpenPose_Light(Stage):
 
         tensor_img = torch.from_numpy(padded_img).permute(2, 0, 1).unsqueeze(0).float()
         
-        if self.gpu:
+        if self._configs["gpu"]:
             tensor_img = tensor_img.cuda()
         
         stages_output = self.net(tensor_img)
@@ -221,14 +223,19 @@ class OpenPose_Light(Stage):
 
         img = self._getInput("image")
 
-        frame_id = img.frame_id
+        frame_id = self._configs["frame_id"]
+
+        if frame_id == "pass":
+            frame_id = img.frame_id
+        
         img = img.image
 
         poses = self.getPose(img)
 
         bodyposes = self.posesToData(poses)
 
-    
+        for bodypose in bodyposes:
+            bodypose.frame_id = frame_id
 
         self._setOutput(bodyposes, "bodyposes")
 

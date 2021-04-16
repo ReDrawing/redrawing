@@ -11,18 +11,28 @@ from redrawing.data_interfaces.image import Image
 
 class CameraReceiver(Stage):
 
-    def __init__(self, ip="192.168.2.101", port="8080", frame_id="UNKNOW"):
-        super().__init__()
-        self.addOutput("frame", Image)
-        self._ip = ip
-        self._port = port
-        self._frame_id = frame_id
+    configs_default = {"ip": "192.168.2.101",
+                        "port": "8080",
+                        "frame_id": "UNKNOW"}
 
-        url = "http://"+ip+":"+port+"/video"
+    def __init__(self, configs={}):
+        super().__init__(configs)
+        self.addOutput("frame", Image)
+        
+    
+    def setup(self):
+        self._config_lock = True
+
+        self._ip = self._configs["ip"]
+        self._port = self._configs["port"]
+        self._frame_id = self._configs["frame_id"]
+
+        url = "http://"+self._ip+":"+self._port+"/video"
 
         self._cap = cv.VideoCapture(url)
-        self.cap.set(cv.CAP_PROP_BUFFERSIZE, 0)
-    
+        self._cap.set(cv.CAP_PROP_BUFFERSIZE, 0)
+
+
     def process(self):
         
         ret, frame = self.cap.read()
@@ -33,14 +43,22 @@ class CameraReceiver(Stage):
 
 class IMUReceiver(Stage):
 
-    def __init__(self, ip="192.168.2.101", port="8080", frame_id="UNKNOW"):
+    configs_default = {"ip": "192.168.2.101",
+                        "port": "8080",
+                        "frame_id": "UNKNOW"}
 
-        super().__init__()
+    def __init__(self, configs={}):
+
+        super().__init__(configs)
         self.addOutput("imu", IMU)
+    
+    def setup(self):
+        self._config_lock = False
 
-        self._ip = ip
-        self._port = port
-        self._frame_id = frame_id
+        self._ip = self._configs["ip"]
+        self._port = self._configs["port"]
+        self._frame_id = self._configs["frame_id"]
+
     
     def process(self):
         url = "http://"+self._ip+":"+self._port+"/sensors.json"

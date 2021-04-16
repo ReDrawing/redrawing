@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+from copy import deepcopy
 
 class Stage(ABC):
     '''!
@@ -8,12 +8,30 @@ class Stage(ABC):
         @todo Stage: adicionar variável para indicar que uma nova entrada foi recebida
     '''
 
-    def __init__(self):
+    configs_default = {}
+
+    def __init__(self, configs={}):
         self.input_dict = {}
         self.output_dict = {}
 
         self.input_values = {}
         self.output_values = {}
+
+        new_configs = deepcopy(type(self).configs_default)
+
+        for index in configs:
+            if configs[index] != new_configs[index]:
+                new_configs[index] = configs[index]
+
+        self._configs = new_configs
+        self._config_lock = False
+
+    def setup(self):
+        self._config_lock = True
+    
+    def change_config(self, config_key, new_value):
+        if self._config_lock == False:
+            self._configs[config_key] = new_value
 
 
     def addInput(self, id, inType):

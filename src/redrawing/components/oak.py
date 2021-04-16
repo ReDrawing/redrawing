@@ -30,19 +30,23 @@ class OAK_Pose(Stage):
                     'R-Ear' : "EAR_R"     , 
                     'L-Ear' : "EAR_L"     }
 
-    
+    configs_default = {"frame_id": "oak",
+                        "rgb_out": False,
+                        "rgb_resolution": (1920,1080),
+                        "bodypose" : False}
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, configs={}):
+        super().__init__(configs)
         self.addOutput("bodyposes", list)
         self.addOutput("rgb", Image)
 
         self._device = None
         self._nnQueeu = None
-
         
     
     def setup(self):
+
+        self._config_lock = True
 
         if self._device is not None:
             return
@@ -97,7 +101,7 @@ class OAK_Pose(Stage):
 
             bodyposes = []
             for pose in poses:
-                bodypose = BodyPose(pixel_space=True, frame_id="oak")
+                bodypose = BodyPose(pixel_space=True, frame_id=self._configs["frame_id"])
 
                 for keypoint_name in pose:
                     keypoint_key = OAK_Pose.keypointDict[keypoint_name]

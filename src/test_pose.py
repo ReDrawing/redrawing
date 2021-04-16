@@ -5,7 +5,7 @@ from redrawing.components.openpose_light import OpenPose_Light
 from redrawing.communication.udp import send_data
 from redrawing.data_interfaces.image import Image
 
-cap = cv.VideoCapture(1)
+cap = cv.VideoCapture(0)
 
 if not cap.isOpened():
     print("Câmera não disponível")
@@ -31,4 +31,3 @@ while(True):
     for pose in poses:
         print("Enviando pose")
         send_data(pose)
-        

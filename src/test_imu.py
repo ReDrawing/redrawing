@@ -8,12 +8,15 @@ from redrawing.communication.udp import send_data
 imuReceiver = IMUReceiver()
 ukf = UKF_IMU()
 
+imuReceiver.setup()
+ukf.setup()
 
 
 while(True):
     imuReceiver.process()
     imu = imuReceiver.getOutput("imu")
-    
+
+
     ukf.setInput(imu,"imu")
     ukf.process()
     orientation = ukf.getOutput("orientation")

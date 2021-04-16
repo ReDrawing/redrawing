@@ -13,22 +13,31 @@ class UKF_IMU(Stage):
     '''!
         @todo UKF_IMU: atualizar estágios apenas quando houver alteração de entradas (ver original em cti_sensors)
     '''
+    configs_default = {"gravity": 9.78613,
+                        "magneticIntensity": 22902.5e-9,
+                        "inclination": -39.2722,
+                        "frame_id" : "PASS"}
 
-    def __init__(self, gravity=9.78613, magneticIntensity=22902.5e-9, inclination=-39.2722):
+    def __init__(self, configs={}):
 
-        super().__init__()
+        super().__init__(configs)
 
         self.addInput("imu", IMU)
         self.addOutput("orientation", Orientation)
 
-        self._gravity = gravity
-        self._magneticIntensity = magneticIntensity
-        self._inclination = inclination
+        
+
+    def setup(self):
+        self._config_lock = True
+
+        self._gravity = self._configs["gravity"]
+        self._magneticIntensity = self._configs["magneticIntensity"]
+        self._inclination = self._configs["inclination"]
 
         self._accel = np.array([0.0,0.0,0.0], dtype=np.float64)
         self._gyro = np.array([0.0,0.0,0.0], dtype=np.float64)
         self._mag = np.array([0.0,0.0,0.0], dtype=np.float64)
-        self._frame_id = "UNKNOW"
+        self._frame_id = self._configs["frame_id"]
         self._last_time = 0.0
         self._deltaT = 0.0
 
@@ -36,6 +45,7 @@ class UKF_IMU(Stage):
         self.gyroErrorCompensation = GyroErrorCompensation()
         self.measurementHandler = MeasurementHandler(self._magneticIntensity, self._inclination, self._gravity)
         self.ukf = ErUkfImu()
+
 
     def _parse_inputs(self):
         imu = self._getInput("imu")
@@ -95,7 +105,12 @@ class UKF_IMU(Stage):
     def _update_output(self):
         rotation = self.thetaToRotation(self._theta)
 
-        orientation = Orientation(frame_id=self._frame_id)
+        frame_id = self._frame_id
+
+        if(self._frame_id == "PASS"):
+            self._frame_id = self._getInput('imu').frame_id
+
+        orientation = Orientation(frame_id=frame_id)
 
         orientation.orientation = rotation
 

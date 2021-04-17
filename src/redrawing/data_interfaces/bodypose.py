@@ -4,6 +4,8 @@ import numpy as np
 class BodyPose(Data):
     '''!
         Data class for body poses messages
+
+        @todo Reorganizar lista de keypoints para evitar repetição. Verificar como lidar com diferentes modelos
     '''
 
     #List of available keypoints types
@@ -35,7 +37,50 @@ class BodyPose(Data):
     "ANKLE_R"       ,
     "ANKLE_L"       ,
     "FOOT_L"        ,
-    "FOOT_R"        ,]
+    "FOOT_R"        ,
+
+    "THUMB_CMC_L",
+    "THUMB_MCP_L",
+    "THUMB_IP_L",
+    "THUMB_TIP_L",
+    "INDEX_FINGER_MCP_L",
+    "INDEX_FINGER_PIP_L",
+    "INDEX_FINGER_DIP_L",
+    "INDEX_FINGER_TIP_L",
+    "MIDDLE_FINGER_MCP_L",
+    "MIDDLE_FINGER_PIP_L", 
+    "MIDDLE_FINGER_DIP_L",
+    "MIDDLE_FINGER_TIP_L",
+    "RING_FINGER_MCP_L",
+    "RING_FINGER_PIP_L",
+    "RING_FINGER_DIP_L",
+    "RING_FINGER_TIP_L",
+    "PINKY_MCP_L",
+    "PINKY_PIP_L",
+    "PINKY_DIP_L",
+    "PINKY_TIP_L",
+
+    "THUMB_CMC_R",
+    "THUMB_MCP_R",
+    "THUMB_IP_R",
+    "THUMB_TIP_R",
+    "INDEX_FINGER_MCP_R",
+    "INDEX_FINGER_PIP_R",
+    "INDEX_FINGER_DIP_R",
+    "INDEX_FINGER_TIP_R",
+    "MIDDLE_FINGER_MCP_R",
+    "MIDDLE_FINGER_PIP_R", 
+    "MIDDLE_FINGER_DIP_R",
+    "MIDDLE_FINGER_TIP_R",
+    "RING_FINGER_MCP_R",
+    "RING_FINGER_PIP_R",
+    "RING_FINGER_DIP_R",
+    "RING_FINGER_TIP_R",
+    "PINKY_MCP_R",
+    "PINKY_PIP_R",
+    "PINKY_DIP_R",
+    "PINKY_TIP_R",
+    ]
 
     def __init__(self, pixel_space=False, frame_id="UNKOWN"):
         '''!

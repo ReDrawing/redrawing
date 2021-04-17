@@ -3,6 +3,10 @@ from redrawing.data_interfaces.gesture import Gesture
 from redrawing.data_interfaces.bodypose import BodyPose
 
 class HandGesture(Stage):
+    '''!
+        Detects hand gestures.
+    '''
+
     configs_default = {}
 
     def __init__(self, configs={}):

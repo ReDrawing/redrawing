@@ -22,6 +22,12 @@ class OAK_Stage(Stage):
                     }
     
     def __init__(self, configs={}):
+        '''!
+            OAK_Stage constructor.
+
+            Parameters:
+                @param configs : dict = The configurations changes from the defaults configs of the stage
+        '''
         super().__init__(configs)
 
         self._config_lock = True
@@ -46,7 +52,10 @@ class OAK_Stage(Stage):
     
     def setup(self):
         '''!
-            Configs the stage, creating the pipeline for the OAK
+            Configs the OAK stage.
+
+            Creates the pipeline for the OAK with all the camera and NN nodes, 
+            initiate and creates the queues
 
             @todo Criar nó para as câmeras monocromáticas
         '''
@@ -146,6 +155,12 @@ class OAK_Stage(Stage):
     
 
     def process(self):
+        '''!
+            Process the data received from the OAK.
+
+            Decodes the neural results and pass with the camera images
+            to the outputs channels
+        '''
         
         self.nn_output = {}
         self.cam_output = {}
@@ -170,7 +185,6 @@ class OAK_Stage(Stage):
 
     def __del__(self):
         if self._device is not None:
-            print("Interrompendo conexão com device")
             self._device.close()
 
 

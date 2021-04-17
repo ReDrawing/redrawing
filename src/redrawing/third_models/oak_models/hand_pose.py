@@ -11,6 +11,9 @@ from redrawing.components.oak_model import OAK_NN_Model
 import redrawing.third_models.oak_models as oak_models
 
 class OAK_PalmDetector(OAK_NN_Model):
+    '''!
+        Handles the palm detector for OAK
+    '''
 
     input_size = [128,128]
 
@@ -52,6 +55,10 @@ class OAK_PalmDetector(OAK_NN_Model):
         oak_stage._setOutput(result, 'palm')
 
 class OAK_HandFeature(OAK_NN_Model):
+    '''!
+        Handles the hand feature detector for oak
+    '''
+
     input_size = [456,256]
 
     def __init__(self):

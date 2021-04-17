@@ -6,7 +6,7 @@ from redrawing.communication.udp import send_data
 from redrawing.data_interfaces.bodypose import BodyPose
 
 
-oak_configs = {"rgb_out" : True, "rgb_resolution": (456, 256), "nn_enable":{"bodypose":True}}
+oak_configs = {"rgb_out" : True, "rgb_resolution": [456, 256], "nn_enable":{"bodypose":True}}
 
 oak = OAK_Stage(oak_configs)
 

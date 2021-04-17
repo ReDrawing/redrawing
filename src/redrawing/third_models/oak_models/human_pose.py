@@ -1,9 +1,13 @@
+import os
+
 import depthai as dai
 import numpy as np
 import cv2
 
 from redrawing.data_interfaces.bodypose import BodyPose
 from redrawing.components.oak_constants import *
+from redrawing.components.oak_model import OAK_NN_Model
+import redrawing.third_models.oak_models as oak_models
 from .pose import getKeypoints, getValidPairs, getPersonwiseKeypoints
 
 POSE_PAIRS = [[1, 2], [1, 5], [2, 3], [3, 4], [5, 6], [6, 7], [1, 8], [8, 9], [9, 10], [1, 11], [11, 12], [12, 13],
@@ -30,6 +34,43 @@ keypointDict = {'Nose'  : "NOSE"      ,
                     'L-Eye' : "EYE_L"     ,
                     'R-Ear' : "EAR_R"     , 
                     'L-Ear' : "EAR_L"     }
+
+
+class OAK_BodyPose(OAK_NN_Model):
+
+    input_size = [456,256]
+
+    def __init__(self):
+        self.node = None
+        
+        self.input_size = OAK_BodyPose.input_size
+
+    def create_node(self, oak_stage):
+        base_path = os.path.abspath(oak_models.__file__)
+        base_path = base_path[:-11]
+        blob_path = base_path + "human-pose-estimation-0001_openvino_2021.2_6shave" +".blob"
+
+        nn_node = oak_stage.pipeline.createNeuralNetwork()
+        nn_node.setBlobPath(blob_path)
+        nn_node.setNumInferenceThreads(2)
+        nn_node.input.setQueueSize(1)
+        nn_node.input.setBlocking(False)
+
+        if(oak_stage.preview_size["rgb"] != [456, 256]):
+            img_manip = oak_stage.pipeline.createImageManip()
+            img_manip.setResize(456, 256)
+            oak_stage.cam["rgb"].preview.link(img_manip.inputImage)
+            img_manip.out.link(nn_node.input)
+        else:
+            oak_stage.cam["rgb"].preview.link(nn_node.input)
+        
+        self.node = nn_node
+        return nn_node
+
+    def decode_result(self, oak_stage):
+        nn_output = oak_stage.nn_output["bodypose"]
+        if nn_output is not None:
+            bd_process_result(oak_stage,nn_output)
 
 
 def bd_process_result(oak_stage, nn_output):
@@ -89,8 +130,3 @@ def process_output(nn_output, h, w):
 
         poses.append(pose)
     return poses
-
-bodypose_configs = {"blob_name":"human-pose-estimation-0001_openvino_2021.2_6shave",
-                    "process_function":bd_process_result,
-                    "img_type": COLOR,
-                    "img_size": (456, 256)}

@@ -46,9 +46,9 @@ class BodyPose(Data):
                 @param frame_id (string): The name of the coordinate system where keypoints are
         '''
         object.__setattr__(self,"_keypoints",{})
-        self._pixel_space = pixel_space
-        self._keypoints_names = BodyPose.keypoints_names
-        self._frame_id = frame_id
+        self._pixel_space : bool = pixel_space
+        self._keypoints_names : list = BodyPose.keypoints_names
+        self._frame_id : string = frame_id
 
         pass
     

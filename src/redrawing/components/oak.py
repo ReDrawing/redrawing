@@ -1,4 +1,5 @@
 import os
+from abc import ABC, abstractmethod
 
 import depthai as dai
 import numpy as np
@@ -8,22 +9,18 @@ from redrawing.components.oak_constants import *
 from redrawing.data_interfaces.image import Image
 from redrawing.data_interfaces.bodypose import BodyPose
 import redrawing.third_models.oak_models as oak_models
-from redrawing.third_models.oak_models.human_pose import bodypose_configs
+from redrawing.third_models.oak_models.human_pose import OAK_BodyPose
 
 class OAK_Stage(Stage):
 
-    
-    COLOR=1
-    LEFT=2
-    RIGHT=3
 
     configs_default = {"frame_id": "oak",
                         "rgb_out": False,
-                        "rgb_resolution": (1920,1080),
+                        "rgb_resolution": [1920,1080],
                         "nn_enable":{"bodypose":True},
-                        "nn_config": {"bodypose":bodypose_configs}
+                        "nn_model" : {"bodypose":OAK_BodyPose},
                     }
-
+    
     def __init__(self, configs={}):
         super().__init__(configs)
 
@@ -34,10 +31,15 @@ class OAK_Stage(Stage):
                 self.addOutput(nn, list)
         if(self._configs["rgb_out"] == True):
             self.addOutput("rgb", Image)
+        
+        self.preview_size = {"rgb" : self._configs["rgb_resolution"]}
 
-        self._device = None
+        self._device = None  
         self._nnQueeu = None
         self._cameraQueeu = None
+
+        self.pipeline = None
+        self.cam = {}
         
     
     def setup(self):
@@ -54,6 +56,8 @@ class OAK_Stage(Stage):
 
         pipeline = dai.Pipeline()
         
+        self.pipeline = pipeline
+
         rgb_size = [0,0]
         if self._configs["rgb_out"] == True:
             rgb_size = list(self._configs["rgb_resolution"])
@@ -66,32 +70,26 @@ class OAK_Stage(Stage):
             base_path = base_path[:-11]
 
             if self._configs["nn_enable"][nn] == True:
-
-                blob_path = base_path + self._configs["nn_config"][nn]["blob_name"] +".blob"
-
-                nn_node = pipeline.createNeuralNetwork()
-                nn_node.setBlobPath(blob_path)
-                nn_node.setNumInferenceThreads(2)
-                nn_node.input.setQueueSize(1)
-                nn_node.input.setBlocking(False)
+                nn_list[nn] = self._configs["nn_model"][nn]()
                 
-                size = self._configs["nn_config"][nn]["img_size"]
+                size = nn_list[nn].input_size
+                input_type = nn_list[nn].input_type
                 target_size = None
 
-                if  self._configs["nn_config"][nn]["img_type"] == OAK_Stage.COLOR:
+                if input_type == COLOR:
                     target_size = rgb_size
-                elif self._configs["nn_config"][nn]["img_type"] == OAK_Stage.LEFT:
+                elif input_type == LEFT:
                     target_size = left_size
-                elif self._configs["nn_config"][nn]["img_type"] == OAK_Stage.RIGHT:
+                elif input_type == RIGHT:
                     target_size = right_size
-                
+
                 if target_size is not None:
                     if size[0] > target_size[0]:
                         rgb_size[0] = size[0]
                     if size[1] > target_size[1]:
                         rgb_size[1] = size[1]
-
-                nn_list[nn] = nn_node
+        
+        self._nn_list = nn_list
 
         rgb_cam = None
         left_cam = None
@@ -103,38 +101,19 @@ class OAK_Stage(Stage):
             rgb_cam.setInterleaved(False)
             rgb_cam.setBoardSocket(dai.CameraBoardSocket.RGB)
         
+        self.cam['rgb'] = rgb_cam
+        self.cam['left'] = left_cam
+        self.cam['right'] = right_cam
 
         nn_xout = {}
 
         for nn in nn_list:
-            target_size = None
-            nn_size = self._configs["nn_config"][nn]["img_size"]
-            img_type = self._configs["nn_config"][nn]["img_type"]
-            cam = None
+
+            nn_node = nn_list[nn].create_node(self)
         
-            if  img_type == OAK_Stage.COLOR:
-                target_size = rgb_size
-                cam = rgb_cam
-            elif img_type == OAK_Stage.LEFT:
-                target_size = left_size
-                cam = left_cam
-            elif img_type == OAK_Stage.RIGHT:
-                target_size = right_size
-                cam = right_cam
-
-            if list(nn_size) != target_size:
-                img_manip = pipeline.createImageManip()
-                img_manip.setResize(nn_size[0],nn_size[1])
-                cam.preview.link(img_manip.inputImage)
-                img_manip.out.link(nn_list[nn].input)
-                
-                
-            else:
-                cam.preview.link(nn_list[nn].input)
-
             xout = pipeline.createXLinkOut()
             xout.setStreamName(nn)
-            nn_list[nn].out.link(xout.input)
+            nn_node.out.link(xout.input)
             nn_xout[nn] = xout
             
         cam_xout = {}
@@ -163,24 +142,30 @@ class OAK_Stage(Stage):
 
     def process(self):
         
+        self.nn_output = {}
+        self.cam_output = {}
+
         for nn in self._nn_queeu:
-            nn_output = self._nn_queeu[nn].tryGet()
+            output = self._nn_queeu[nn].tryGet()
             
-            if nn_output is not None:
-                self._configs["nn_config"][nn]["process_function"](self, nn_output)
+            self.nn_output[nn] = output
         
         for cam in self._cam_queeu:
-            cam_output = self._cam_queeu[cam].tryGet()
+            self.cam_output[cam] = self._cam_queeu[cam].tryGet()
 
-            if cam_output is not None:
-                img = cam_output.getCvFrame()
+            if self.cam_output[cam] is not None:
+                img = self.cam_output[cam].getCvFrame()
 
                 img = Image(self._configs["frame_id"], img)
 
                 self._setOutput(img, cam)
 
+        for nn in self._nn_list:
+            self._nn_list[nn].decode_result(self)
 
     def __del__(self):
         if self._device is not None:
             print("Interrompendo conexão com device")
             self._device.close()
+
+

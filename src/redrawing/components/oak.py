@@ -35,11 +35,13 @@ class OAK_Stage(Stage):
         self.preview_size = {"rgb" : self._configs["rgb_resolution"]}
 
         self._device = None  
-        self._nnQueeu = None
-        self._cameraQueeu = None
+        self._nnqueue = None
+        self._cameraqueue = None
 
         self.pipeline = None
         self.cam = {}
+        self.input_queue = {}
+        self.input_link = {}
         
     
     def setup(self):
@@ -126,17 +128,20 @@ class OAK_Stage(Stage):
         self._device = dai.Device(pipeline)
         self._device.startPipeline()
 
-        nn_queeu = {}
-        cam_queeu = {}
+        nn_queue = {}
+        cam_queue = {}
 
         for nn in nn_xout:
-            nn_queeu[nn] = self._device.getOutputQueue(nn, maxSize=1, blocking=False)
+            nn_queue[nn] = self._device.getOutputQueue(nn, maxSize=1, blocking=False)
         
         for cam in cam_xout:
-            cam_queeu[cam] = self._device.getOutputQueue(cam, maxSize=1, blocking=False)
+            cam_queue[cam] = self._device.getOutputQueue(cam, maxSize=1, blocking=False)
 
-        self._nn_queeu = nn_queeu
-        self._cam_queeu = cam_queeu
+        for link in self.input_link:
+            self.input_queue[link] = self._device.getInputQueue(link)
+
+        self._nn_queue = nn_queue
+        self._cam_queue = cam_queue
 
     
 
@@ -145,13 +150,13 @@ class OAK_Stage(Stage):
         self.nn_output = {}
         self.cam_output = {}
 
-        for nn in self._nn_queeu:
-            output = self._nn_queeu[nn].tryGet()
+        for nn in self._nn_queue:
+            output = self._nn_queue[nn].tryGet()
             
             self.nn_output[nn] = output
         
-        for cam in self._cam_queeu:
-            self.cam_output[cam] = self._cam_queeu[cam].tryGet()
+        for cam in self._cam_queue:
+            self.cam_output[cam] = self._cam_queue[cam].tryGet()
 
             if self.cam_output[cam] is not None:
                 img = self.cam_output[cam].getCvFrame()

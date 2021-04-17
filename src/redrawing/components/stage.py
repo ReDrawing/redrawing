@@ -25,7 +25,7 @@ class Stage(ABC):
 
         self._configs = new_configs
         self._config_lock = False
-
+    
     def setup(self):
         self._config_lock = True
     

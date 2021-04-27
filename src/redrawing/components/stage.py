@@ -111,6 +111,7 @@ class Stage(ABC):
                 @param id : String = The id of the input channel 
         '''
 
+        self._input_changed[id] = False
         return self.input_values[id]
 
     def _setOutput(self, value, id):

@@ -15,6 +15,8 @@ class Image(Data):
                 @param frame_id (string): the frame where the camera that captured the image is
         '''
 
+        super().__init__()
+        
         self._frame_id = frame_id
         self._image = image
     

@@ -12,4 +12,6 @@ class Gesture(Data):
     
 
     def __init__(self, gesture=None):
+        super().__init__()
+        
         self._gesture = gesture

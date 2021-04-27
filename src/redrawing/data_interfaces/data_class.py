@@ -34,7 +34,8 @@ class Data(ABC):
         Base class for data messages classes
     '''
 
-    def __init__(self):
+    def __init__(self, time = 0):
+        self._time = time
         pass
 
     def toJSON(self):

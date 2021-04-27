@@ -7,6 +7,8 @@ from redrawing.data_interfaces.data_class import Data
 class IMU(Data):
 
     def __init__(self, frame_id = "UNKNOW"):
+        super().__init__()
+
         self._frame_id = frame_id
 
         self._accel = np.zeros(3, dtype=np.float64)
@@ -99,6 +101,8 @@ class IMU(Data):
 class Orientation(Data):
 
     def __init__(self, frame_id = "UNKNOW"):
+        super().__init__()
+        
         self._frame_id = frame_id
 
         self._orientation = np.zeros(4, dtype=np.float64)

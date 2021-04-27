@@ -104,6 +104,10 @@ class BodyPose(Data):
         self._frame_id : str = frame_id
 
         pass
+
+    @property
+    def frame_id(self):
+        return self._frame_id
     
     @property
     def user_id(self):
@@ -189,6 +193,33 @@ class BodyPose(Data):
 
         del self.keypoints[name]
 
+    def apply_transformation(self, R, t, new_frame_id):
+        for name in self._keypoints:
+            if self._keypoints[name] is None:
+                continue
+
+            self._keypoints[name] = (R@self._keypoints[name])+t 
+
+        self._frame_id = new_frame_id
+
+    @staticmethod
+    def distance(bodypose1, bodypose2):
+        dist = 0.0
+        count = 0
+
+
+        for name in BodyPose.keypoints_names:
+            kp1 = bodypose1.get_keypoint(name)
+            kp2 = bodypose2.get_keypoint(name)
+            if (kp1 is not None) and  (kp2 is not None):
+                dist += np.linalg.norm(kp2-kp1)
+                count += 1
+
+        if count == 0:
+            dist = float('inf')
+
+        return dist
+
 class BodyVel(BodyPose):
     def __init__(self, pixel_space=False, frame_id='UNKOWN', user_id='UNKOWN', time=tm.time()):
         super().__init__(pixel_space=pixel_space, frame_id=frame_id, user_id=user_id, time=time)
@@ -235,20 +266,3 @@ class BodyAccel(BodyPose):
 
         return body_accel
         
-
-def distance(bodypose1 : BodyPose, bodypose2 : BodyPose):
-    dist = 0.0
-    count = 0
-
-
-    for name in BodyPose.keypoints_names:
-        kp1 = bodypose1.get_keypoint(name)
-        kp2 = bodypose2.get_keypoint(name)
-        if (kp1 is not None) and  (kp2 is not None):
-            dist += np.linalg.norm(kp2-kp1)
-            count += 1
-
-    if count == 0:
-        dist = float('inf')
-
-    return dist

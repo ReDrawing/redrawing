@@ -119,6 +119,10 @@ class BodyPose(Data):
         pass
 
     def __getattr__(self, name):
+
+        if name in {'__getstate__', '__setstate__'}:
+            return object.__getattr__(self, name)
+
         try:
             return self._keypoints[name]
         except KeyError:

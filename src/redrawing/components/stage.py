@@ -5,7 +5,6 @@ class Stage(ABC):
     '''!
         @todo Stage: ser possível criar inputs e outputs que são vetores de classes Data
         @todo Stage: verificar se tipo de entrada e saída são instancias de Data
-        @todo Stage: adicionar variável para indicar que uma nova entrada foi recebida
     '''
 
     configs_default = {}
@@ -21,6 +20,12 @@ class Stage(ABC):
 
         self.input_dict = {}
         self.output_dict = {}
+        
+        self.output_queue = {}
+        self.input_queue = {}
+        self.output_size = {}
+        self._output_changed = {}
+        self._input_changed = {}
 
         self.input_values = {}
         self.output_values = {}
@@ -64,7 +69,8 @@ class Stage(ABC):
         '''
 
         self.input_dict[id] = inType
-        self.output_values[id] = None
+        self.input_values[id] = None
+        self._input_changed[id] = False
 
     def addOutput(self, id, outType):
         '''!
@@ -77,6 +83,7 @@ class Stage(ABC):
 
         self.output_dict[id] = outType
         self.output_values[id] = None
+        self._output_changed[id] = False
 
     def setInput(self, value, id):
         '''!
@@ -89,14 +96,16 @@ class Stage(ABC):
                 @param id : String = The id of the channel
         '''
 
+
         if not isinstance(value, self.input_dict[id]):
             raise ValueError("Incorrect type")
         
         self.input_values[id] = value
+        self._input_changed[id] = True
 
     def _getInput(self, id):
         '''!
-            Get the input from the channel
+            Get the last input from the channel
 
             Parameters:
                 @param id : String = The id of the input channel 
@@ -119,10 +128,11 @@ class Stage(ABC):
             raise ValueError("Incorrect type")
 
         self.output_values[id] = value
+        self._output_changed[id] = True
 
     def getOutput(self, id):
         '''!
-            Gets an output from the stage.
+            Gets the last output from the stage.
 
             Parameters:
                 @param id : String = The id of the output channel
@@ -132,6 +142,71 @@ class Stage(ABC):
         return self.output_values[id]
 
         pass
+    
+    def _setOutputQueue(self, queue, id):
+        '''!
+            Defines a queue to be used for the input communication channel
+
+            Parameters:
+                @param queue - redrawing.components.pipeline.Queue object
+                @param id - ID of the communication channel
+        '''
+
+        self.output_queue[id] = queue
+    
+    def _setInputQueue(self, queue, id):
+        '''!
+            Defines a queue to be used for the output communication channel
+
+            Parameters:
+                @param queue - redrawing.components.pipeline.Queue object
+                @param id - ID of the communication channel
+        '''
+
+        self.input_queue[id] = queue
+
+    def _sendOutputs(self):
+        '''!
+            Sends the last outputs to the channels queue
+        '''
+
+        for id in self.output_queue:
+            if self._output_changed[id] == True:
+                self._output_changed[id] = False
+                self.output_queue[id].insert(self.output_values[id])
+        
+    def _getInputs(self):
+        '''!
+            Gets the last inputs from the communication channels
+        '''
+
+        for id in self.input_queue:
+            if not self.input_queue[id].empty():
+                self.setInput(self.input_queue[id].get(), id)
+
+    def has_input(self, id):
+        '''!
+            Checks if a new input is avaible.
+
+            Parameters:
+                @param id - ID of the communication channel
+
+        '''
+
+        return self._input_changed[id]
+
+    def run(self):
+        '''!
+            Runs a cicle of the Stage
+
+            Get the inputs from the queues, process and send the outputs to the queues
+        '''
+
+        self._getInputs()
+
+        self.process()
+
+        self._sendOutputs()
 
     @abstractmethod
     def process(self):

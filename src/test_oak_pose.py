@@ -1,7 +1,7 @@
 import cv2 as cv
 import numpy as np
 
-from redrawing.components.pipeline import Pipeline
+from redrawing.components.pipeline import SingleProcess_Pipeline
 from redrawing.components.oak import OAK_Stage
 from redrawing.communication.udp import UDP_Stage
 from redrawing.data_interfaces.bodypose import BodyPose
@@ -12,7 +12,7 @@ oak_stage = OAK_Stage(oak_configs)
 
 udp_stage = UDP_Stage()
 
-pipeline = Pipeline()
+pipeline = SingleProcess_Pipeline()
 
 pipeline.insert_stage(oak_stage)
 pipeline.insert_stage(udp_stage)

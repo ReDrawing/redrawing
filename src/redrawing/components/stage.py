@@ -21,6 +21,12 @@ class Stage(ABC):
 
         self.input_dict = {}
         self.output_dict = {}
+        
+        self.output_queue = {}
+        self.input_queue = {}
+        self.output_size = {}
+        self._output_changed = {}
+        self._input_changed = {}
 
         self.input_values = {}
         self.output_values = {}
@@ -64,7 +70,8 @@ class Stage(ABC):
         '''
 
         self.input_dict[id] = inType
-        self.output_values[id] = None
+        self.input_values[id] = None
+        self._input_changed[id] = False
 
     def addOutput(self, id, outType):
         '''!
@@ -77,6 +84,7 @@ class Stage(ABC):
 
         self.output_dict[id] = outType
         self.output_values[id] = None
+        self.output_changed[id] = False
 
     def setInput(self, value, id):
         '''!
@@ -93,6 +101,7 @@ class Stage(ABC):
             raise ValueError("Incorrect type")
         
         self.input_values[id] = value
+        self._input_changed[id] = True
 
     def _getInput(self, id):
         '''!
@@ -119,6 +128,7 @@ class Stage(ABC):
             raise ValueError("Incorrect type")
 
         self.output_values[id] = value
+        self._output_changed[id] = True
 
     def getOutput(self, id):
         '''!
@@ -132,6 +142,34 @@ class Stage(ABC):
         return self.output_values[id]
 
         pass
+    
+    def _setOutQueue(self, queue, max_size, id):
+        self.output_queue[id] = queue
+        self.output_size[id] = max_size
+    
+    def _setInputQueue(self, queue, id):
+        self.input_queue[id] = queue
+
+    def _sendOutputs(self):
+        for id in self.output_queue:
+            if self._output_changed[id] == True:
+                self._output_changed[id] = False
+                self.output_queue[id].insert(self.output_values[id])
+        
+    def _getInputs(self):
+        for id in self.input_queue:
+            if not self.input_queue[id].empty():
+                self.setInput(self.input_queue[id].get(), id)
+
+    def has_input(self, id):
+        return self._input_changed[id]
+
+    def run(self):
+        _getInputs()
+
+        process()
+
+        _sendOutputs(self)
 
     @abstractmethod
     def process(self):

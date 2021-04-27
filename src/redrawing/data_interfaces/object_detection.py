@@ -8,5 +8,7 @@ class ObjectDetection(Data):
     '''
 
     def __init__(self, bounding_box=np.zeros((2,2), dtype=np.float), frame_id="UNKNOW"):
+        super().__init__()
+        
         self.bounding_box = np.zeros((2,2), dtype=np.float)
         self.frame_id = frame_id

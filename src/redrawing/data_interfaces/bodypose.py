@@ -1,5 +1,7 @@
 from redrawing.data_interfaces.data_class import Data
 import numpy as np
+import time as tm
+    
 
 class BodyPose(Data):
     '''!
@@ -82,7 +84,7 @@ class BodyPose(Data):
     "PINKY_TIP_R",
     ]
 
-    def __init__(self, pixel_space=False, frame_id="UNKOWN"):
+    def __init__(self, pixel_space=False, frame_id="UNKOWN", user_id = "UNKOWN", time=-1):
         '''!
             BodyPose constructor
 
@@ -90,13 +92,35 @@ class BodyPose(Data):
                 @param pixels_space (boolean): True if the keypoints are in camera pixel (2D) space, false if its in 3D metric space
                 @param frame_id (string): The name of the coordinate system where keypoints are
         '''
-        object.__setattr__(self,"_keypoints",{})
+        if time == -1:
+            time = tm.time()
+
+        super().__init__(time=time)
+
+        self._keypoints : dict = {name : None for name in BodyPose.keypoints_names}
         self._pixel_space : bool = pixel_space
+        self._user_id : str = user_id
         self._keypoints_names : list = BodyPose.keypoints_names
-        self._frame_id : string = frame_id
+        self._frame_id : str = frame_id
 
         pass
+
+    @property
+    def frame_id(self):
+        return self._frame_id
     
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @user_id.setter
+    def user_id(self, value):
+        if isinstance(value, str):
+            self._user_id = value
+
+    @property
+    def time(self):
+        return self._time
     
     def add_keypoint(self, name, x, y, z=1.0):
         '''!
@@ -114,7 +138,18 @@ class BodyPose(Data):
             raise AttributeError("BodyPose has no keypoint "+str(name))
 
 
-        self._keypoints[name] = [float(x),float(y),float(z)]
+        self._keypoints[name] = np.array([float(x),float(y),float(z)])
+
+        pass
+
+    def add_keypoint_array(self, name, array):
+        if name not in self._keypoints_names:
+            raise AttributeError("BodyPose has no keypoint "+str(name))
+
+        if isinstance(array, np.ndarray):
+            self._keypoints[name] = array
+        elif isinstance(array,list):
+            self._keypoints[name] = np.array(array,dtype=np.float64)
 
         pass
 
@@ -157,3 +192,77 @@ class BodyPose(Data):
 
 
         del self.keypoints[name]
+
+    def apply_transformation(self, R, t, new_frame_id):
+        for name in self._keypoints:
+            if self._keypoints[name] is None:
+                continue
+
+            self._keypoints[name] = (R@self._keypoints[name])+t 
+
+        self._frame_id = new_frame_id
+
+    @staticmethod
+    def distance(bodypose1, bodypose2):
+        dist = 0.0
+        count = 0
+
+
+        for name in BodyPose.keypoints_names:
+            kp1 = bodypose1.get_keypoint(name)
+            kp2 = bodypose2.get_keypoint(name)
+            if (kp1 is not None) and  (kp2 is not None):
+                dist += np.linalg.norm(kp2-kp1)
+                count += 1
+
+        if count == 0:
+            dist = float('inf')
+
+        return dist
+
+class BodyVel(BodyPose):
+    def __init__(self, pixel_space=False, frame_id='UNKOWN', user_id='UNKOWN', time=tm.time()):
+        super().__init__(pixel_space=pixel_space, frame_id=frame_id, user_id=user_id, time=time)
+
+    @classmethod
+    def from_bodyposes(cls, bodypose, bodypose_last):
+        body_vel = BodyVel(bodypose._pixel_space, bodypose._frame_id, bodypose.user_id, bodypose._time)
+
+        deltaT = bodypose.time - bodypose_last.time
+
+        for name in BodyPose.keypoints_names:
+            kp1 = bodypose.get_keypoint(name)
+            kp2 = bodypose_last.get_keypoint(name)
+
+            if (kp1 is not None) and  (kp2 is not None):
+                vel = kp2-kp1
+                vel /= deltaT
+
+                body_vel.add_keypoint_array(name, vel)
+                
+
+        return body_vel
+
+
+class BodyAccel(BodyPose):
+    def __init__(self, pixel_space=False, frame_id='UNKOWN', user_id='UNKOWN', time=tm.time()):
+        super().__init__(pixel_space=pixel_space, frame_id=frame_id, user_id=user_id, time=time)
+
+    @classmethod
+    def from_bodyvel(cls, bodyvel, bodyvel_last):
+        body_accel = BodyAccel(bodyvel._pixel_space, bodyvel._frame_id, bodyvel.user_id, bodyvel._time)
+
+        deltaT = bodyvel.time - bodyvel_last.time
+
+        for name in BodyPose.keypoints_names:
+            kp1 = bodyvel.get_keypoint(name)
+            kp2 = bodyvel_last.get_keypoint(name)
+
+            if (kp1 is not None) and  (kp2 is not None):
+                accel = kp2-kp1
+                accel /= deltaT
+
+                body_accel.add_keypoint_array(name, accel)
+
+        return body_accel
+        

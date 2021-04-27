@@ -8,10 +8,11 @@ class Gesture(Data):
                     "ONE",
                     "TWO",
                     "TRHEE",
-                    "FOUR",]
+                    "FOUR",
+                    "UNKNOWN"]
     
 
-    def __init__(self, gesture=None):
+    def __init__(self, gesture="UNKNOWN"):
         super().__init__()
         
         self._gesture = gesture

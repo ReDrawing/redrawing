@@ -13,7 +13,7 @@ def is_rotation(R):
 class Frame_TF(Data):
 
 
-    def __init__(self, frame_origin, frame_destiny, R, t):
+    def __init__(self, frame_origin="UNKNOWN", frame_destiny="UNKNOWN", R=np.eye(3,dtype=np.float64), t = np.zeros(3,dtype=np.float64)):
         super().__init__()
         
         if not is_rotation(R):

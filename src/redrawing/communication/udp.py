@@ -4,6 +4,10 @@ from redrawing.data_interfaces.data_class import Data
 from redrawing.components.stage import Stage
 
 class UDP_Stage(Stage):
+    '''!
+        Stage for exchange data using UDP protocol
+    '''
+
     configs_default = { "ip" : "127.0.0.1",
                         "port" : 6000}
 
@@ -22,6 +26,10 @@ class UDP_Stage(Stage):
     
     def _send_msg(self, data):
         '''!
+            Sends the data. 
+
+            Parameters:
+                @param data - the data to be sended
 
             @todo Criar exceção adequada para quando objeto não for do tipo Data
         '''
@@ -33,6 +41,9 @@ class UDP_Stage(Stage):
         self.sock.sendto(msg, (self.ip, self.port))
 
     def process(self):
+        '''!
+            Gets the inputs and send to the address 
+        '''
 
         if self.has_input("send_msg"):
             dataIn = self._getInput("send_msg")
@@ -48,10 +59,10 @@ def send_data(data):
     '''!
         Sends the message by UDP
 
+        It is preferable to use the UDP_Stage stage
+
         Parameters:
             @param data (data_interfaces.Data): the data object that will be sent
-
-        @todo udp.py - Implementar classe adequada: ela deve possuir capacidade de alterar endereço ip e porta de envio. Singleton?
     '''
 
     if not isinstance(data, Data):

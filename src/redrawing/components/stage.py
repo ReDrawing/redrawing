@@ -84,7 +84,7 @@ class Stage(ABC):
 
         self.output_dict[id] = outType
         self.output_values[id] = None
-        self.output_changed[id] = False
+        self._output_changed[id] = False
 
     def setInput(self, value, id):
         '''!
@@ -96,6 +96,7 @@ class Stage(ABC):
                 @param value = The value to be passed to the input channel
                 @param id : String = The id of the channel
         '''
+
 
         if not isinstance(value, self.input_dict[id]):
             raise ValueError("Incorrect type")
@@ -143,9 +144,8 @@ class Stage(ABC):
 
         pass
     
-    def _setOutQueue(self, queue, max_size, id):
+    def _setOutputQueue(self, queue, id):
         self.output_queue[id] = queue
-        self.output_size[id] = max_size
     
     def _setInputQueue(self, queue, id):
         self.input_queue[id] = queue
@@ -165,11 +165,11 @@ class Stage(ABC):
         return self._input_changed[id]
 
     def run(self):
-        _getInputs()
+        self._getInputs()
 
-        process()
+        self.process()
 
-        _sendOutputs(self)
+        self._sendOutputs()
 
     @abstractmethod
     def process(self):

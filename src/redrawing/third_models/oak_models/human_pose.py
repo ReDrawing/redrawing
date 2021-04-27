@@ -85,6 +85,7 @@ def bd_process_result(oak_stage, nn_output):
             bodypose.add_keypoint(keypoint_key, pose[keypoint_name][0], pose[keypoint_name][1])    
 
         bodyposes.append(bodypose)
+
     
     oak_stage._setOutput(bodyposes, "bodypose")
 

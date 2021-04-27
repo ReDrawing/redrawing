@@ -21,19 +21,19 @@ class Queue(ABC):
     def full(self):
         ...
 
-class SimpleQueue():
+class SimpleQueue(Queue):
     def __init__(self, max_size):
         super().__init__(max_size)
-        self.queue = deque(max_len=max_size)
+        self.queue = deque(maxlen=max_size)
     
     def get(self):
-        self.queue.popleft()
+        return self.queue.popleft()
 
     def insert(self, value):
         self.queue.append(value)
     
     def empty(self):
-        if len(self.queue) >= 0:
+        if len(self.queue) > 0:
             return False
         return True
 
@@ -50,17 +50,27 @@ class Pipeline():
         self.stages = []
 
         pass
+    
+    def insert_stage(self, stage):
+        self.stages.append(stage)
 
     def create_connection(self, stage_out, id_out, stage_in, id_in, max_size):
         d = SimpleQueue(max_size)
         
-        stage_out._setOutQueue(d, id_out)
-        stage_in._setInQueue(d, id_in)
+        stage_out._setOutputQueue(d, id_out)
+        stage_in._setInputQueue(d, id_in)
 
     def start(self):
         for stage in self.stages:
             stage.setup()
 
+        
+    
+    def run(self):
         while True:
-            for stage in self.stages:
+            self.runOnce()
+            
+
+    def runOnce(self):
+        for stage in self.stages:
                 stage.run()

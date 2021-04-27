@@ -5,12 +5,13 @@ from redrawing.components.stage import Stage
 
 class UDP_Stage(Stage):
     configs_default = { "ip" : "127.0.0.1",
-                        "port" : "6000"}
+                        "port" : 6000}
 
     def __init__(self, configs={}):
         super().__init__(configs=configs)
 
         self.addInput("send_msg", Data)
+        self.addInput("send_msg_list", list)
 
     def setup(self):
         self._config_lock = True
@@ -33,13 +34,14 @@ class UDP_Stage(Stage):
 
     def process(self):
 
-        dataIn = self._getInput("send_msg")
-
-        if type(dataIn) is not list:
-            dataIn = [dataIn]
-
-        for data in dataIn:
-            self._send_msg(data)
+        if self.has_input("send_msg"):
+            dataIn = self._getInput("send_msg")
+            self._send_msg(dataIn)
+        
+        if self.has_input("send_msg_list"):
+            dataIn = self._getInput("send_msg_list")
+            for data in dataIn:
+                self._send_msg(data)
 
 
 def send_data(data):

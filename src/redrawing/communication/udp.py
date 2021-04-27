@@ -1,6 +1,46 @@
 import socket
 import time
 from redrawing.data_interfaces.data_class import Data
+from redrawing.components.stage import Stage
+
+class UDP_Stage(Stage):
+    configs_default = { "ip" : "127.0.0.1",
+                        "port" : "6000"}
+
+    def __init__(self, configs={}):
+        super().__init__(configs=configs)
+
+        self.addInput("send_msg", Data)
+
+    def setup(self):
+        self._config_lock = True
+        self.ip = self._configs["ip"]
+        self.port = self._configs["port"]
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    def _send_msg(self, data):
+        '''!
+
+            @todo Criar exceção adequada para quando objeto não for do tipo Data
+        '''
+        if not isinstance(data, Data):
+            raise Exception("data must be of Data class")
+        
+        msg = data.toMessage()
+
+        self.sock.sendto(msg, (self.ip, self.port))
+
+    def process(self):
+
+        dataIn = self._getInput("send_msg")
+
+        if type(dataIn) is not list:
+            dataIn = [dataIn]
+
+        for data in dataIn:
+            self._send_msg(data)
+
 
 def send_data(data):
     '''!

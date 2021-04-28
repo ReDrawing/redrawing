@@ -7,7 +7,7 @@ class Image(Data):
         Data class for image messages
     '''
 
-    def __init__(self, frame_id = "UNKNOWN", image = np.asarray([],dtype=np.uint8)):
+    def __init__(self, frame_id = "UNKNOWN", image = np.zeros((1,1,3),dtype=np.uint8)):
         '''!
             Image constructor
 
@@ -19,7 +19,7 @@ class Image(Data):
         
         self._frame_id = frame_id
         self._image = image
-    
+
     @property
     def image(self):
         '''!

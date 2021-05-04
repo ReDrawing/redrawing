@@ -44,11 +44,18 @@ class Data(ABC):
         '''
 
         self.__time = time.time()
-        return json.dumps(self, default=lambda o: encoder(o))
+
+        j = json.dumps(self, default=lambda o: encoder(o))
+        j = j[:-1]+", data_type : "+ self.__class__.__name__+"}"
+        
+        return j
     
     def toMessage(self):
         '''!
             Converct object to JSON encoded ready to send message
         '''
+        msg = self.toJSON()
+        msg = msg.replace('\"__','\"')
+        msg = msg.replace('\"_','\"')
 
-        return self.toJSON().encode("utf-8")
+        return msg.encode("utf-8")

@@ -54,5 +54,8 @@ class Data(ABC):
         '''!
             Converct object to JSON encoded ready to send message
         '''
+        msg = self.toJSON()
+        msg = msg.replace('\"__','\"')
+        msg = msg.replace('\"_','\"')
 
-        return self.toJSON().encode("utf-8")
+        return msg.encode("utf-8")

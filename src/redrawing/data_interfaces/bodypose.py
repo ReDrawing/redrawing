@@ -108,6 +108,11 @@ class BodyPose(Data):
     @property
     def frame_id(self):
         return self._frame_id
+
+    @frame_id.setter
+    def frame_id(self, value):
+        if isinstance(value, str):
+            self._frame_id = value
     
     @property
     def user_id(self):

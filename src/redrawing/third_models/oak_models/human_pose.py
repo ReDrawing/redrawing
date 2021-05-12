@@ -76,17 +76,26 @@ class OAK_BodyPose(OAK_NN_Model):
 def bd_process_result(oak_stage, nn_output):
     poses = process_output(nn_output, 256, 456)
 
+    depth = oak_stage._configs["depth"]
+
     bodyposes = []
     for pose in poses:
         bodypose = BodyPose(pixel_space=True, frame_id=oak_stage._configs["frame_id"])
 
         for keypoint_name in pose:
             keypoint_key = keypointDict[keypoint_name]
+
+            x = 0.0
+            y = 0.0
+            z = 1.0
+
             bodypose.add_keypoint(keypoint_key, pose[keypoint_name][0], pose[keypoint_name][1])    
 
         bodyposes.append(bodypose)
 
     
+
+
     oak_stage._setOutput(bodyposes, "bodypose")
 
 def process_output(nn_output, h, w):

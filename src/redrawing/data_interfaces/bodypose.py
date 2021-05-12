@@ -97,17 +97,22 @@ class BodyPose(Data):
 
         super().__init__(time=time)
 
-        self._keypoints : dict = {name : None for name in BodyPose.keypoints_names}
-        self._pixel_space : bool = pixel_space
-        self._user_id : str = user_id
-        self._keypoints_names : list = BodyPose.keypoints_names
-        self._frame_id : str = frame_id
+        self._keypoints = {name : np.ones(3)*np.inf for name in BodyPose.keypoints_names}
+        self._pixel_space  = pixel_space
+        self._user_id  = user_id
+        self._keypoints_names  = BodyPose.keypoints_names
+        self._frame_id  = frame_id
 
         pass
 
     @property
     def frame_id(self):
         return self._frame_id
+
+    @frame_id.setter
+    def frame_id(self, value):
+        if isinstance(value, str):
+            self._frame_id = value
     
     @property
     def user_id(self):

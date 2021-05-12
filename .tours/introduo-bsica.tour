@@ -1,0 +1,147 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Introdução básica",
+  "steps": [
+    {
+      "file": "src/redrawing/components/pipeline.py",
+      "description": "Com a classe Pipeline, é possível criar uma sequência de operações para serem executadas",
+      "line": 166
+    },
+    {
+      "file": "src/redrawing/components/pipeline.py",
+      "description": "Ela possui uma versão em que as operações são executadas sequencialmente em loop, em apenas um processo",
+      "line": 213
+    },
+    {
+      "file": "src/redrawing/components/pipeline.py",
+      "description": "E outra em que elas são executadas de forma paralela, em vários processos",
+      "line": 277
+    },
+    {
+      "file": "src/redrawing/components/stage.py",
+      "description": "Para definir as operações, são criados subclasses do tipos Stage, os estágios da Pipeline",
+      "line": 4
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "Um exemplo de estágio é o User_Manager_Stage, que gerencia os dados detectados de outros estágios sobre usuários, como poses corporais e suas velocidades e acelerações. Perceba como ela herda da classe Stage: `(Stage)`",
+      "line": 7
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "Os estágios possuem canais de comunicação, que devem ser a única forma de entrada e saída de dados por eles (para garantir o funcionamento de forma paralela).\r\n\r\nCada canal pode ser de entrada, como este, e deve possuir um nome, `\"body_pose_list\"`, e um tipo, `list`",
+      "line": 22
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "Esse é um exemplo de canal de saída. É importante que o tipo seja declarado corretamente, já que é verificado quando uma mensagem é passada.\r\n\r\nCada canal é implementado utilizando uma fila. O tamanho dela é configurável quando a pipeline está sendo criada.",
+      "line": 25
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "Os estágios podem ter também configurações. As configurações padrão devem ser definidas por meio de um atributo da classe `configs_default` (dicionário).",
+      "line": 15
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "E cada estágio deve receber em seu construtor um parâmetro `configs`, para permitir alterar essas configurações.",
+      "line": 19
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "Para que os canais de comunicação e configurações funcionem corretamente, é preciso sempre chamar o construtor da classe Stage.\r\n\r\nNele as listas de canais serão criadas, e ele também recebe as configurações que serão alteradas e verifica se existem alterações em relação ao padrão ",
+      "line": 20
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "Para definir o comportamento de um estágio, as operações que ele fará, existem dois métodos.\r\n\r\nO `setup` permite definir operações que serão executadas apenas quando o estágio for iniciado. É aconselhável colocar aqui instaciação de objetos necessários para o funcionamento, enquanto o construtor apenas inicia os canais de comunicação.",
+      "line": 32
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "O segundo método é o `process`, ele é chamado em loop enquanto a pipeline estiver sendo executada. Antes dele, as últimas entradas na fila são passadas como entradas atuais do estágio, e depois as saídas definidas são passadas para as filas de saída",
+      "line": 107
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "É possível verificar se existe uma nova saída não processada utilizando o método `has_input`",
+      "line": 118
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "E receber essa entrada com o método `_getInput`",
+      "line": 119
+    },
+    {
+      "file": "src/redrawing/components/user.py",
+      "description": "O método `_setOutput` é utilizado para enviar os dados para a saída do estágio",
+      "line": 168
+    },
+    {
+      "file": "src/redrawing/data_interfaces/data_class.py",
+      "description": "Por fim, temos a classe `Data`, que é o modelo para criar classes padrão para tranferência de dados entre estágios. Seus subtipos podem possuir qualquer tipo de dado padrão de Python e ndarrays do numpy.",
+      "line": 32
+    },
+    {
+      "file": "src/redrawing/data_interfaces/image.py",
+      "description": "É importante que no construtor de uma classe de dados sejam criadas todas suas variáveis, com o tipos corretos, sendo possível instanciar sem passar nenhum parâmetro.\r\n\r\nCom isso, é possível converte-las corretamente para outras linguagens, como Java",
+      "line": 10
+    },
+    {
+      "file": "src/test_oak_pose _multiprocess.py",
+      "description": "Por fim, temos um exemplo de funcionamento:",
+      "line": 9
+    },
+    {
+      "file": "src/test_oak_pose _multiprocess.py",
+      "description": "Aqui é criado um `OAK_Stage`, que é o estágio utilizado para trabalhar com a câmera OAK-D. Perceba como ele recebe um dicionário de configurações definido acima, onde habilitamos o uso da rede neural para estimar pose corporal, `\"bodypose\" : True`",
+      "line": 12,
+      "selection": {
+        "start": {
+          "line": 12,
+          "character": 1
+        },
+        "end": {
+          "line": 13,
+          "character": 1
+        }
+      }
+    },
+    {
+      "file": "src/test_oak_pose _multiprocess.py",
+      "description": "O UDP_Stage é capaz de enviar dados utilizando o protocolo UDP. Como não estamos passando nenhuma configuração, ele enviará as mensagens para a porta e endereço padrão",
+      "line": 14
+    },
+    {
+      "file": "src/test_oak_pose _multiprocess.py",
+      "description": "E criamos a pipeline, nesse caso a versão para trabalhar de com múltiplos processos em paralelo",
+      "line": 16
+    },
+    {
+      "file": "src/test_oak_pose _multiprocess.py",
+      "description": "Inserimos os estágios na pipeline",
+      "line": 19,
+      "selection": {
+        "start": {
+          "line": 19,
+          "character": 1
+        },
+        "end": {
+          "line": 20,
+          "character": 1
+        }
+      }
+    },
+    {
+      "file": "src/test_oak_pose _multiprocess.py",
+      "description": "E criamos uma conexão entre o canal de saída \"bodypose\" do oak_stage com o canal de entrada  \"send_msg_list\" do udp_stage.\r\n\r\nO tamanho da fila entre eles é definido como 1.",
+      "line": 21
+    },
+    {
+      "file": "src/test_oak_pose _multiprocess.py",
+      "description": "E a pipeline é executada até algum erro/exceção ou encerramento do programa",
+      "line": 23
+    }
+  ],
+  "isPrimary": true
+}

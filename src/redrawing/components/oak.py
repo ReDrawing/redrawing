@@ -13,6 +13,9 @@ import redrawing.third_models.oak_models as oak_models
 from redrawing.third_models.oak_models.human_pose import OAK_BodyPose
 
 class OAK_Stage(Stage):
+    '''!
+        @todo Ler intrinsics da câmera do EEPROM dela, quando implementado pela depthai
+    '''
 
 
     configs_default = {"frame_id": "oak",
@@ -25,8 +28,11 @@ class OAK_Stage(Stage):
                         "depth_far": False,
                     }
 
-    intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
-    intrinsic_inv = np.linalg.inv(intrinsic)
+    gray_intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
+    gray_intrinsic_inv = np.linalg.inv(gray_intrinsic)
+
+    color_intrinsic = np.array([[402.70436726, 0, 161.73113458], [0, 403.32603922, 149.55649867], [0,0,1.]],dtype=np.float64)
+    color_intrinsic_inv = np.linalg.inv(color_intrinsic)
 
     def __init__(self, configs={}):
         '''!
@@ -151,8 +157,7 @@ class OAK_Stage(Stage):
                 depth_node.setSubpixel(True)
                 depth_node.setExtendedDisparity(False)
             else:
-                #depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
-                ...
+                depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
 
             left_cam.out.link(depth_node.left)
             right_cam.out.link(depth_node.right)
@@ -298,7 +303,7 @@ class OAK_Stage(Stage):
                 if self._depth_frame[point_x,point_y] == 0:
                     continue
 
-                x_space += OAK_Stage.intrinsic_inv @ (self._depth_frame[point_x,point_y]*x_pixel)
+                x_space += OAK_Stage.color_intrinsic_inv @ (self._depth_frame[point_x,point_y]*x_pixel)
                 n_pixel += 1
 
         x_space = x_space/n_pixel

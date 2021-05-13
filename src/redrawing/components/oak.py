@@ -24,7 +24,10 @@ class OAK_Stage(Stage):
                         "depth_close" : False,
                         "depth_far": False,
                     }
-    
+
+    intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
+    intrinsic_inv = np.linalg.inv(intrinsic)
+
     def __init__(self, configs={}):
         '''!
             OAK_Stage constructor.
@@ -86,11 +89,15 @@ class OAK_Stage(Stage):
         right_size = [0,0]
         nn_list = {}
 
+        using_nn = False
+
         for nn in self._configs["nn_enable"]:
             base_path = os.path.abspath(oak_models.__file__)
             base_path = base_path[:-11]
 
             if self._configs["nn_enable"][nn] == True:
+                using_nn = True
+
                 nn_list[nn] = self._configs["nn_model"][nn]()
                 
                 size = nn_list[nn].input_size
@@ -122,6 +129,8 @@ class OAK_Stage(Stage):
             rgb_cam.setInterleaved(False)
             rgb_cam.setBoardSocket(dai.CameraBoardSocket.RGB)
         
+        self._rgb_size = rgb_size
+
         if self._configs["depth"] == True:
             left_cam = pipeline.createMonoCamera()
             left_cam.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
@@ -132,15 +141,18 @@ class OAK_Stage(Stage):
             right_cam.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 
             depth_node = pipeline.createStereoDepth()
-            depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
             depth_node.setLeftRightCheck(True)
 
-            if self._configs["depth_close"] == True: #See close -> Extended
+            
+            if (not using_nn) and self._configs["depth_close"] == True: #See close -> Extended
                 depth_node.setExtendedDisparity(True)
                 depth_node.setSubpixel(False)
-            elif self._configs["depth_far"] == True: #See longer -> Subpixel
+            elif (not using_nn) and self._configs["depth_far"] == True: #See longer -> Subpixel
                 depth_node.setSubpixel(True)
                 depth_node.setExtendedDisparity(False)
+            else:
+                #depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
+                ...
 
             left_cam.out.link(depth_node.left)
             right_cam.out.link(depth_node.right)
@@ -163,7 +175,7 @@ class OAK_Stage(Stage):
             nn_xout[nn] = xout
             
         cam_xout = {}
-        if rgb_cam is not None:
+        if rgb_cam is not None and self._configs["rgb_out"]:
             xout = pipeline.createXLinkOut()
             xout.setStreamName("rgb")
             rgb_cam.preview.link(xout.input)
@@ -247,6 +259,7 @@ class OAK_Stage(Stage):
                 depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000)
                 depth_img = Image(self._configs["frame_id"], (depth/np.max(depth))*256)
 
+                self._depth_frame = depth
                 self._depth_map = depth_map
 
                 self._setOutput(depth_map,"depth_map")
@@ -256,6 +269,42 @@ class OAK_Stage(Stage):
         for nn in self._nn_list:
             self._nn_list[nn].decode_result(self)
 
+    def get3DPosition(self, point_x,point_y, size):
+        '''!
+            @todo Alterar setup para alinhar o depth com o centro, e utilizar intrisics apropriadas
+        '''
+
+        point_x *= self._depth_frame.shape[0]/size[0]
+        point_y *= self._depth_frame.shape[1]/size[1]
+
+
+        x_pixel = np.array([point_x,point_y,1.0],dtype=np.float64)
+
+        point_x = int(point_x)
+        point_y = int(point_y)
+
+        x_space = np.zeros(3,dtype=np.float64)
+
+        n_pixel = 0
+
+        for x in range(point_x-2,point_x+3):
+            
+            if x<0 or x>self._depth_frame.shape[0]:
+                continue
+
+            for y in range(point_y-2,point_y+3):
+                if y<0 or y>self._depth_frame.shape[1]:
+                    continue
+                if self._depth_frame[point_x,point_y] == 0:
+                    continue
+
+                x_space += OAK_Stage.intrinsic_inv @ (self._depth_frame[point_x,point_y]*x_pixel)
+                n_pixel += 1
+
+        x_space = x_space/n_pixel
+
+        return x_space/1000.0
+        
     def __del__(self):
         if self._device is not None:
             self._device.close()

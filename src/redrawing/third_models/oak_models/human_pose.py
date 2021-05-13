@@ -78,18 +78,28 @@ def bd_process_result(oak_stage, nn_output):
 
     depth = oak_stage._configs["depth"]
 
+    pixel_space = True
+    if depth:
+        pixel_space = False
+
     bodyposes = []
     for pose in poses:
-        bodypose = BodyPose(pixel_space=True, frame_id=oak_stage._configs["frame_id"])
+        bodypose = BodyPose(pixel_space=pixel_space, frame_id=oak_stage._configs["frame_id"])
 
         for keypoint_name in pose:
             keypoint_key = keypointDict[keypoint_name]
 
-            x = 0.0
-            y = 0.0
+            x = pose[keypoint_name][0]
+            y = pose[keypoint_name][1]
             z = 1.0
 
-            bodypose.add_keypoint(keypoint_key, pose[keypoint_name][0], pose[keypoint_name][1])    
+            if depth:
+                x_space = oak_stage.get3DPosition(x,y, OAK_BodyPose.input_size)
+                x = x_space[0]
+                y = x_space[1]
+                z = x_space[2]
+
+            bodypose.add_keypoint(keypoint_key, x, y, z)    
 
         bodyposes.append(bodypose)
 

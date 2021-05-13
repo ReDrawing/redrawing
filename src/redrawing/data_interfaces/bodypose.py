@@ -142,8 +142,10 @@ class BodyPose(Data):
         if name not in self._keypoints_names:
             raise AttributeError("BodyPose has no keypoint "+str(name))
 
-
-        self._keypoints[name] = np.array([float(x),float(y),float(z)])
+        if np.isnan(x) or np.isnan(y) or np.isnan(z):
+            self._keypoints[name] = np.array([np.inf,np.inf,np.inf])
+        else:
+            self._keypoints[name] = np.array([float(x),float(y),float(z)])
 
         pass
 

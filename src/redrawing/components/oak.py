@@ -26,13 +26,15 @@ class OAK_Stage(Stage):
                         "depth" : False,
                         "depth_close" : False,
                         "depth_far": False,
+                        "force_reconnection": True,
                     }
 
     gray_intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
     gray_intrinsic_inv = np.linalg.inv(gray_intrinsic)
 
-    color_intrinsic = np.array([[402.70436726, 0, 161.73113458], [0, 403.32603922, 149.55649867], [0,0,1.]],dtype=np.float64)
+    color_intrinsic = np.array([[373.95694075, 0, 158.39368282], [0, 375.78372531, 170.28561667], [0,0,1.]],dtype=np.float64)
     color_intrinsic_inv = np.linalg.inv(color_intrinsic)
+    color_calib_size = [300,300]
 
     def __init__(self, configs={}):
         '''!
@@ -134,6 +136,9 @@ class OAK_Stage(Stage):
             rgb_cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
             rgb_cam.setInterleaved(False)
             rgb_cam.setBoardSocket(dai.CameraBoardSocket.RGB)
+
+            if self._configs["depth"] == True:
+                rgb_cam.initialControl.setManualFocus(130)
         
         self._rgb_size = rgb_size
 
@@ -235,44 +240,49 @@ class OAK_Stage(Stage):
             Decodes the neural results and pass with the camera images
             to the outputs channels
         '''
-        
-        self.nn_output = {}
-        self.cam_output = {}
+        try:
+            self.nn_output = {}
+            self.cam_output = {}
 
-        for nn in self._nn_queue:
-            output = self._nn_queue[nn].tryGet()
+            for nn in self._nn_queue:
+                output = self._nn_queue[nn].tryGet()
+                
+                self.nn_output[nn] = output
             
-            self.nn_output[nn] = output
-        
-        for cam in self._cam_queue:
-            self.cam_output[cam] = self._cam_queue[cam].tryGet()
+            for cam in self._cam_queue:
+                self.cam_output[cam] = self._cam_queue[cam].tryGet()
 
-            if self.cam_output[cam] is not None:
-                img = self.cam_output[cam].getCvFrame()
-                img = Image(self._configs["frame_id"], img)
+                if self.cam_output[cam] is not None:
+                    img = self.cam_output[cam].getCvFrame()
+                    img = Image(self._configs["frame_id"], img)
 
-                self._setOutput(img, cam)
+                    self._setOutput(img, cam)
 
-        if self._configs["depth"]:
-            depth_output = self._depth_queue.tryGet()
+            if self._configs["depth"]:
+                depth_output = self._depth_queue.tryGet()
 
-            if depth_output is not None:
-                self._depth_output = depth_output
+                if depth_output is not None:
+                    self._depth_output = depth_output
 
-                depth = depth_output.getCvFrame()
+                    depth = depth_output.getCvFrame()
 
-                depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000)
-                depth_img = Image(self._configs["frame_id"], (depth/np.max(depth))*256)
+                    depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000)
+                    depth_img = Image(self._configs["frame_id"], (depth/np.max(depth))*256)
 
-                self._depth_frame = depth
-                self._depth_map = depth_map
+                    self._depth_frame = depth
+                    self._depth_map = depth_map
 
-                self._setOutput(depth_map,"depth_map")
-                self._setOutput(depth_img,"depth_img")
+                    self._setOutput(depth_map,"depth_map")
+                    self._setOutput(depth_img,"depth_img")
 
 
-        for nn in self._nn_list:
-            self._nn_list[nn].decode_result(self)
+            for nn in self._nn_list:
+                self._nn_list[nn].decode_result(self)
+        except Exception as err:
+            if self._configs["force_reconnection"] == True:
+                self.setup()
+            else:
+                raise err
 
     def get3DPosition(self, point_x,point_y, size):
         '''!
@@ -292,7 +302,18 @@ class OAK_Stage(Stage):
 
         n_pixel = 0
 
-        for x in range(point_x-2,point_x+3):
+        scale = [self._depth_frame.shape[0]/OAK_Stage.color_calib_size[0], self._depth_frame.shape[1]/OAK_Stage.color_calib_size[1]]
+
+
+        K = OAK_Stage.color_intrinsic.copy()
+        K[0] *= scale[0]
+        K[1] *= scale[1]
+
+        k_inv = np.linalg.inv(K)
+
+        n_point = 10
+
+        for x in range(point_x-(n_point//2)-1,point_x+(n_point//2)):
             
             if x<0 or x>self._depth_frame.shape[0]:
                 continue
@@ -303,8 +324,11 @@ class OAK_Stage(Stage):
                 if self._depth_frame[point_x,point_y] == 0:
                     continue
 
-                x_space += OAK_Stage.color_intrinsic_inv @ (self._depth_frame[point_x,point_y]*x_pixel)
+                x_space += k_inv @ (float(self._depth_frame[point_x,point_y])*x_pixel)
                 n_pixel += 1
+
+        if(n_pixel == 0):
+            return np.array([np.inf,np.inf,np.inf] ,dtype=np.float64)
 
         x_space = x_space/n_pixel
 

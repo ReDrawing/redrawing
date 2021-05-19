@@ -98,6 +98,7 @@ class BodyPose(Data):
         super().__init__(time=time)
 
         self._keypoints = {name : np.ones(3)*np.inf for name in BodyPose.keypoints_names}
+        self._covariance = {name: np.zeros((3,3)) for name in BodyPose.keypoints_names}
         self._pixel_space  = pixel_space
         self._user_id  = user_id
         self._keypoints_names  = BodyPose.keypoints_names
@@ -127,7 +128,7 @@ class BodyPose(Data):
     def time(self):
         return self._time
     
-    def add_keypoint(self, name, x, y, z=1.0):
+    def add_keypoint(self, name, x, y, z=1.0, covariance=np.zeros((3,3))):
         '''!
             Define the pose of a keypoint
 
@@ -142,12 +143,20 @@ class BodyPose(Data):
         if name not in self._keypoints_names:
             raise AttributeError("BodyPose has no keypoint "+str(name))
 
+        if isinstance(covariance, list):
+            covariance = np.array(covariance)
+
+        if covariance.shape != (3,3):
+            raise Exception("Covariance must be a 3x3 matrix")
+
         if np.isnan(x) or np.isnan(y) or np.isnan(z):
             self._keypoints[name] = np.array([np.inf,np.inf,np.inf])
         else:
             self._keypoints[name] = np.array([float(x),float(y),float(z)])
 
-        pass
+
+        self._covariance[name] = covariance
+        
 
     def add_keypoint_array(self, name, array):
         if name not in self._keypoints_names:
@@ -175,6 +184,9 @@ class BodyPose(Data):
             return super().__setattr__(name, value)
         else:
             self._keypoints[name] = value
+
+    def get_covariance(self, name):
+        return self._covariance[name]
 
     def get_keypoint(self, name):
         '''!
@@ -233,6 +245,10 @@ class BodyVel(BodyPose):
 
     @classmethod
     def from_bodyposes(cls, bodypose, bodypose_last):
+        '''!
+            @todo Calcular covariância a partir da covariância das posições
+        '''
+        
         body_vel = BodyVel(bodypose._pixel_space, bodypose._frame_id, bodypose.user_id, bodypose._time)
 
         deltaT = bodypose.time - bodypose_last.time
@@ -257,6 +273,10 @@ class BodyAccel(BodyPose):
 
     @classmethod
     def from_bodyvel(cls, bodyvel, bodyvel_last):
+        '''!
+            @todo Calcular covariância a partir da covariância das velocidades
+        '''
+
         body_accel = BodyAccel(bodyvel._pixel_space, bodyvel._frame_id, bodyvel.user_id, bodyvel._time)
 
         deltaT = bodyvel.time - bodyvel_last.time

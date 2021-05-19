@@ -14,11 +14,17 @@ cam_rgb = pipeline.createColorCamera()
 cam_rgb.setInterleaved(False)
 cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 cam_rgb.setBoardSocket(dai.CameraBoardSocket.RGB)
+cam_rgb.initialControl.setManualFocus(130)
 cam_rgb.preview.link(xout_preview.input)
+
 
 casa = (7,9)
 tamanho = 20 #cm
 corners_hist = []
+
+size = None
+
+n = 40
 
 with dai.Device(pipeline) as device:
 
@@ -28,7 +34,7 @@ with dai.Device(pipeline) as device:
     index = 0
     
 
-    while(index <10):
+    while(index <n):
         rgb_data = q_rgb.tryGet()
 
         if rgb_data is None:
@@ -36,18 +42,25 @@ with dai.Device(pipeline) as device:
             
         img = rgb_data.getCvFrame()
         
+        size = img.shape
+
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
         # Verifica se existe um tabuleiro de xadrez na imagem
         ret, corners = cv.findChessboardCorners(gray, casa, None)
 
+        cv.imshow("camera", img)
+
+        if cv.waitKey(1) == ord('q'):
+            break
+
         if ret == True:
             index += 1
             corners_hist.append(corners)
             
-            print("Tabuleiro Detectado! Faltam "+str(10-index)+" imagens")
+            print("Tabuleiro Detectado! Faltam "+str(n-index)+" imagens")
             
-            time.sleep(0.5)
+            time.sleep(0.25)
 
         
 
@@ -59,7 +72,7 @@ objp[:,:2] = np.mgrid[0:7,0:9].T.reshape(-1,2)
 objp *= 20
 
 #Listas para guardar os pontos
-objpoints = [objp]*10 #3D = n* objp
+objpoints = [objp]*n #3D = n* objp
 imgpoints = corners_hist #Imagem
 
 
@@ -74,3 +87,5 @@ print("\nMatrix da câmera:")
 print(mtx)
 print("\nCoeficientes de distorção:")
 print(dist)
+print("\nTamanho da imagem")
+print(size)

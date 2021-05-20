@@ -318,7 +318,7 @@ class OAK_Stage(Stage):
             if x<0 or x>self._depth_frame.shape[0]:
                 continue
 
-            for y in range(point_y-2,point_y+3):
+            for y in range(point_y-(n_point//2)-1,point_y+(n_point//2)):
                 if y<0 or y>self._depth_frame.shape[1]:
                     continue
                 if self._depth_frame[point_x,point_y] == 0:

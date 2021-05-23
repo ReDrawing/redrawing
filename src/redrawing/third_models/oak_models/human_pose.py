@@ -40,6 +40,8 @@ class OAK_BodyPose(OAK_NN_Model):
 
     input_size = [456,256]
 
+    outputs = {"bodypose": list}
+
     def __init__(self):
         self.node = None
         
@@ -65,7 +67,7 @@ class OAK_BodyPose(OAK_NN_Model):
             oak_stage.cam["rgb"].preview.link(nn_node.input)
         
         self.node = nn_node
-        return nn_node
+        return {"bodypose": nn_node}
 
     def decode_result(self, oak_stage):
         nn_output = oak_stage.nn_output["bodypose"]

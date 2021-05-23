@@ -12,6 +12,7 @@ from redrawing.data_interfaces.image import Image
 from redrawing.data_interfaces.bodypose import BodyPose
 import redrawing.third_models.oak_models as oak_models
 from redrawing.third_models.oak_models.human_pose import OAK_BodyPose
+from redrawing.third_models.oak_models.blazepose import OAK_Blazepose
 
 class OAK_Stage(Stage):
     '''!
@@ -22,8 +23,8 @@ class OAK_Stage(Stage):
     configs_default = {"frame_id": "oak",
                         "rgb_out": False,
                         "rgb_resolution": [1280,720],
-                        "nn_enable":{"bodypose":True},
-                        "nn_model" : {"bodypose":OAK_BodyPose},
+                        "nn_enable":{"bodypose":True, "blazepose": False},
+                        "nn_model" : {"bodypose":OAK_BodyPose, "blazepose": OAK_Blazepose},
                         "depth" : False,
                         "depth_close" : False,
                         "depth_far": False,
@@ -46,7 +47,7 @@ class OAK_Stage(Stage):
 
     d = -1
     sigma = 3
-    n_point = 20
+    n_point = 50
 
     def __init__(self, configs={}):
         '''!
@@ -61,7 +62,9 @@ class OAK_Stage(Stage):
 
         for nn in self._configs["nn_enable"]:
             if self._configs["nn_enable"][nn] == True:
-                self.addOutput(nn, list)
+                for id_name in self._configs["nn_model"][nn].outputs:
+                    self.addOutput(id_name, self._configs["nn_model"][nn].outputs[id_name])
+
         if(self._configs["rgb_out"] == True):
             self.addOutput("rgb", Image)
         if(self._configs["depth"] == True):
@@ -191,12 +194,13 @@ class OAK_Stage(Stage):
 
         for nn in nn_list:
 
-            nn_node = nn_list[nn].create_node(self)
-        
-            xout = pipeline.createXLinkOut()
-            xout.setStreamName(nn)
-            nn_node.out.link(xout.input)
-            nn_xout[nn] = xout
+            nn_node_dict = nn_list[nn].create_node(self)
+
+            for stream_name in nn_node_dict:
+                xout = pipeline.createXLinkOut()
+                xout.setStreamName(stream_name)
+                nn_node_dict[stream_name].out.link(xout.input)
+                nn_xout[stream_name] = xout
             
         cam_xout = {}
         if rgb_cam is not None and self._configs["rgb_out"]:
@@ -229,6 +233,7 @@ class OAK_Stage(Stage):
 
         nn_queue = {}
         cam_queue = {}
+        input_queue = {}
 
         for nn in nn_xout:
             nn_queue[nn] = self._device.getOutputQueue(nn, maxSize=5, blocking=False)
@@ -236,8 +241,11 @@ class OAK_Stage(Stage):
         for cam in cam_xout:
             cam_queue[cam] = self._device.getOutputQueue(cam, maxSize=5, blocking=False)
 
+
+        self._oak_input_queue = {}
+
         for link in self.input_link:
-            self._input_queue[link] = self._device.getInputQueue(link)
+            self._oak_input_queue[link] = self._device.getInputQueue(link)
 
         if self._configs["depth"]:
             self._depth_queue = self._device.getOutputQueue("depth",maxSize=1, blocking=False)
@@ -259,10 +267,11 @@ class OAK_Stage(Stage):
             self.cam_output = {}
 
             for nn in self._nn_queue:
-                output = self._nn_queue[nn].tryGet()
                 
-                self.nn_output[nn] = output
+                output = self._nn_queue[nn].tryGet()
             
+                self.nn_output[nn] = output
+
             for cam in self._cam_queue:
                 self.cam_output[cam] = self._cam_queue[cam].tryGet()
 
@@ -366,7 +375,7 @@ class OAK_Stage(Stage):
         else:
 
 
-            hist, edge = np.histogram(samples, density=True)
+            hist, edge = np.histogram(samples, bins=1000, range=(0.0,5000.0), density=True)
 
             a = []
 
@@ -386,8 +395,8 @@ class OAK_Stage(Stage):
                 if i == 1:
                     z_test = np.mean(samples)
                     
-                z_min = z_test-100
-                z_max = z_test+100
+                z_min = z_test-100.0
+                z_max = z_test+100.0
 
                 mask = np.logical_and(edge>z_min,edge<z_max)
                 values = edge[mask]

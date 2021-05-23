@@ -9,6 +9,7 @@ class OAK_NN_Model(ABC):
 
     input_type = COLOR
     input_size = [1920, 1080]
+    outputs = {}
 
     @abstractmethod
     def create_node(self, oak_stage):

@@ -34,9 +34,17 @@ class OAK_Stage(Stage):
     gray_intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
     gray_intrinsic_inv = np.linalg.inv(gray_intrinsic)
 
-    color_intrinsic = np.array([[373.95694075, 0, 158.39368282], [0, 375.78372531, 170.28561667], [0,0,1.]],dtype=np.float64)
+    #color_intrinsic = np.array([[373.95694075, 0, 158.39368282], [0, 375.78372531, 170.28561667], [0,0,1.]],dtype=np.float64)
+    #color_calib_size = [300,300]
+
+    color_intrinsic = np.array([[1488.843994140625, 0.0, 956.4694213867188], [0.0, 1486.9603271484375, 546.5672607421875], [0.0, 0.0, 1.0]],dtype=np.float64)
+    color_calib_size = [1080,1920]
+
     color_intrinsic_inv = np.linalg.inv(color_intrinsic)
-    color_calib_size = [300,300]
+
+    d = -1
+    sigma = 3
+    n_point = 50
 
     def __init__(self, configs={}):
         '''!
@@ -167,7 +175,6 @@ class OAK_Stage(Stage):
                 depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
                 depth_node.setSubpixel(False)
                 depth_node.setExtendedDisparity(False)
-                print("AQUI")
 
             left_cam.out.link(depth_node.left)
             right_cam.out.link(depth_node.right)
@@ -273,7 +280,7 @@ class OAK_Stage(Stage):
 
                     if  self._configs["depth_filtering"]:
                         depth = depth.astype(np.float32)
-                        depth = cv.bilateralFilter(depth, 10, 3, 3)
+                        depth = cv.bilateralFilter(depth, self.d, self.sigma, self.sigma)
                         depth = depth.astype(np.uint16)
 
                     depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000.0)
@@ -299,14 +306,12 @@ class OAK_Stage(Stage):
             @todo Alterar setup para alinhar o depth com o centro, e utilizar intrisics apropriadas
         '''
 
-        point_x *= self._depth_frame.shape[0]/size[0]
-        point_y *= self._depth_frame.shape[1]/size[1]
-
-
-        x_pixel = np.array([point_x,point_y,1.0],dtype=np.float64)
+        point_x *= self._depth_frame.shape[0]/size[1]
+        point_y *= self._depth_frame.shape[1]/size[0]
 
         point_x = int(point_x)
         point_y = int(point_y)
+
 
         x_space = np.zeros(3,dtype=np.float64)
 
@@ -321,7 +326,7 @@ class OAK_Stage(Stage):
 
         k_inv = np.linalg.inv(K)
 
-        n_point = 10
+        n_point = self.n_point
 
         for x in range(point_x-(n_point//2)-1,point_x+(n_point//2)):
             
@@ -334,7 +339,7 @@ class OAK_Stage(Stage):
                 if self._depth_frame[x,y] <= 0.3E+3 or self._depth_frame[x,y] >= 3.0E+3:
                     continue
 
-                x_space += k_inv @ (float(self._depth_frame[x,y])*x_pixel)
+                x_space += k_inv @ (float(self._depth_frame[x,y])*np.array([x,y,1.0],dtype=np.float64))
                 n_pixel += 1
 
         if(n_pixel == 0):

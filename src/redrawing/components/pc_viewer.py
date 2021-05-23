@@ -72,7 +72,7 @@ class PCR_Viewer(Stage):
             for bd in self._getInput("bodypose_list"):
                 bodyposes.append(bd)
         
-
+        scale = np.array([1,1],dtype=np.float64)
 
         if self.depth is not None and self.rgb is not None and changed:
             img = cv.cvtColor(self.rgb, cv.COLOR_BGR2RGB)
@@ -80,7 +80,6 @@ class PCR_Viewer(Stage):
 
             depth = (1000.0*self.depth).astype(np.uint16)
 
-            scale = np.array([1,1],dtype=np.float64)
             scale[0] = self.depth.shape[0] / self.calib_size[0]
             scale[1] = self.depth.shape[1] / self.calib_size[1]
 
@@ -114,9 +113,11 @@ class PCR_Viewer(Stage):
                 
                 self.vis.update_geometry(self.point_cloud)
         
+        depht_img = None
         if self.depth is not None and changed:
             depht_img = 256*self.depth/np.max(self.depth)
-            cv.imshow("depth",depht_img)
+            depht_img = cv.cvtColor(depht_img.astype(np.float32), cv.COLOR_GRAY2BGR)
+            #cv.circle(depht_img, (432, 256), 20, (255,0,255),-1)
 
         if bodyposes != []:
             for geometry in self.bodypose_geometry:
@@ -130,17 +131,33 @@ class PCR_Viewer(Stage):
                     if np.isinf(kp[0]):
                         continue
                         
-                    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
+                    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.015)
 
                     #print(kp*1000)
 
                     sphere.translate([kp[0],kp[1],kp[2]])
-                    sphere.paint_uniform_color([1,0,1])
+                    #sphere.translate([kp[0],kp[1],0.5])
 
+                    sphere.paint_uniform_color([1,0,1])
+                    if name == "SHOULDER_R" or name == "SHOULDER_L":
+                        sphere.paint_uniform_color([1,0,1])
+
+                    
                     self.vis.add_geometry(sphere, False)
 
                     self.bodypose_geometry.append(sphere)
 
+                    x_pixel = self.camera_intrinsics @ kp
+                    x_pixel /= x_pixel[2]
+
+                    x_pixel[0] *= scale[0]
+                    x_pixel[1] *= scale[1]
+
+                    cv.circle(depht_img, (int(x_pixel[0]), int(x_pixel[1])), 10, (255,0,0), -1)
+
+        if depht_img is not None:
+            
+            cv.imshow("depth",depht_img)
 
         self.vis.poll_events()
         self.vis.update_renderer()

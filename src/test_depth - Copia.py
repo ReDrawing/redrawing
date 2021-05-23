@@ -26,7 +26,7 @@ if __name__ == '__main__':
     pipeline.create_connection(oak_stage, "bodypose", udp_stage, "send_msg_list", 1)
     pipeline.create_connection(oak_stage, "depth_map", pcr, "depth", 1)
     pipeline.create_connection(oak_stage, "rgb", pcr, "rgb", 1)
-    pipeline.create_connection(oak_stage, "bodypose", pcr, "bodypose_list", 1)
+    #pipeline.create_connection(oak_stage, "bodypose", pcr, "bodypose_list", 1)
 
     #pipeline.start()
     pipeline.run()

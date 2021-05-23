@@ -28,7 +28,8 @@ class OAK_Stage(Stage):
                         "depth_close" : False,
                         "depth_far": False,
                         "force_reconnection": True,
-                        "depth_filtering" : True
+                        "depth_filtering" : True,
+                        "depth_point_mode" : "median"
                     }
 
     gray_intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
@@ -38,13 +39,14 @@ class OAK_Stage(Stage):
     #color_calib_size = [300,300]
 
     color_intrinsic = np.array([[1488.843994140625, 0.0, 956.4694213867188], [0.0, 1486.9603271484375, 546.5672607421875], [0.0, 0.0, 1.0]],dtype=np.float64)
-    color_calib_size = [1080,1920]
+    #color_intrinsic = np.array([[1486.9603271484375, 0.0, 546.5672607421875], [0.0,1488.843994140625 , 956.4694213867188], [0.0, 0.0, 1.0]],dtype=np.float64)
+    color_calib_size = [1920,1080]
 
     color_intrinsic_inv = np.linalg.inv(color_intrinsic)
 
     d = -1
     sigma = 3
-    n_point = 50
+    n_point = 20
 
     def __init__(self, configs={}):
         '''!
@@ -295,8 +297,10 @@ class OAK_Stage(Stage):
 
             for nn in self._nn_list:
                 self._nn_list[nn].decode_result(self)
+        except KeyboardInterrupt as ki:
+            raise ki
         except Exception as err:
-            if self._configs["force_reconnection"] == True:
+            if self._configs["force_reconnection"] == False:
                 self.setup()
             else:
                 raise err
@@ -306,8 +310,10 @@ class OAK_Stage(Stage):
             @todo Alterar setup para alinhar o depth com o centro, e utilizar intrisics apropriadas
         '''
 
-        point_x *= self._depth_frame.shape[0]/size[1]
-        point_y *= self._depth_frame.shape[1]/size[0]
+        point_x *= self._depth_frame.shape[1]/size[0]
+        point_y *= self._depth_frame.shape[0]/size[1]
+
+        x_pixel = np.array([point_x,point_y,1.0],dtype=np.float64)
 
         point_x = int(point_x)
         point_y = int(point_y)
@@ -327,25 +333,83 @@ class OAK_Stage(Stage):
         k_inv = np.linalg.inv(K)
 
         n_point = self.n_point
+        
+        x_min = point_x-(n_point//2)-1
+        x_max = point_x+(n_point//2)
 
-        for x in range(point_x-(n_point//2)-1,point_x+(n_point//2)):
+        y_min = point_y-(n_point//2)-1
+        y_max = point_y+(n_point//2)
+
+        if x_min < 0:
+            x_min = 0
+        if y_min < 0:
+            y_min = 0
+
+        if x_max >= self._depth_frame.shape[0]:
+            x_max = self._depth_frame.shape[0]
+        if y_max >= self._depth_frame.shape[1]:
+            y_max = self._depth_frame.shape[1]
+        
+        samples = self._depth_frame[x_min:x_max,y_min:y_max].flatten()
+        samples = samples[samples != 0]
+        
+
+        if samples.shape[0] == 0:
+            return np.array([np.inf,np.inf,np.inf] ,dtype=np.float64)
+        
+        z = 0
+
+        if self._configs["depth_point_mode"] == "median":
+            z = np.median(samples)
+        elif self._configs["depth_point_mode"] == "mean":
+            z = np.mean(samples)
+        else:
+
+
+            hist, edge = np.histogram(samples, density=True)
+
+            a = []
+
+            for i in range(edge.shape[0]-1):
+                a.append((edge[i]+edge[i+1])/2)
+
+            edge = np.array(a)
+            best_z = 0
+            best_z_inliers = 0
+
+            for i in range(16):
+                index = int(np.random.rand(1)[0]*samples.shape[0])
+                z_test = samples[index]
+                
+                if i == 0:
+                    z_test = np.median(samples)
+                if i == 1:
+                    z_test = np.mean(samples)
+                    
+                z_min = z_test-100
+                z_max = z_test+100
+
+                mask = np.logical_and(edge>z_min,edge<z_max)
+                values = edge[mask]
+
+                weights = hist[np.where(mask)]
+
+                if np.sum(weights) == 0:
+                    continue
+
+                #z_test = np.average(values, weights=weights)
+                n_inlier = values.shape[0]
+
+                if n_inlier > best_z_inliers:
+                    best_z_inliers = n_inlier
+                    best_z = z_test
             
-            if x<0 or x>=self._depth_frame.shape[0]:
-                continue
+            z = best_z
 
-            for y in range(point_y-(n_point//2)-1,point_y+(n_point//2)):
-                if y<0 or y>=self._depth_frame.shape[1]:
-                    continue
-                if self._depth_frame[x,y] <= 0.3E+3 or self._depth_frame[x,y] >= 3.0E+3:
-                    continue
-
-                x_space += k_inv @ (float(self._depth_frame[x,y])*np.array([x,y,1.0],dtype=np.float64))
-                n_pixel += 1
-
-        if(n_pixel == 0):
+        if z == 0:
             return np.array([np.inf,np.inf,np.inf] ,dtype=np.float64)
 
-        x_space = x_space/n_pixel
+        x_space = k_inv @ (z*x_pixel) 
 
         return x_space/1000.0
         

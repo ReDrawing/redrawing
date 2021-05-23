@@ -329,6 +329,16 @@ class MultiProcess_Pipeline(Pipeline):
 
             process.append(p)
 
+        while 1:
+            try:
+                pass
+            except KeyboardInterrupt:
+                break
+
+        print("TERMINANDO")
+
         for p in process:
-            p.join()
+            p.terminate()
+            p.join(1)
+            p.close()
         

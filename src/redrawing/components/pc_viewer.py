@@ -131,7 +131,7 @@ class PCR_Viewer(Stage):
                     if np.isinf(kp[0]):
                         continue
                         
-                    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.015)
+                    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.05)
 
                     #print(kp*1000)
 
@@ -158,6 +158,9 @@ class PCR_Viewer(Stage):
         if depht_img is not None:
             
             cv.imshow("depth",depht_img)
+
+            if self.rgb is not None:
+                cv.imshow("rgb", cv.resize(self.rgb, (depht_img.shape[1], depht_img.shape[0])))
 
         self.vis.poll_events()
         self.vis.update_renderer()

@@ -29,7 +29,7 @@ class OAK_Stage(Stage):
                         "depth_far": False,
                         "force_reconnection": True,
                         "depth_filtering" : True,
-                        "depth_point_mode" : "median"
+                        "depth_point_mode" : ""
                     }
 
     gray_intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)

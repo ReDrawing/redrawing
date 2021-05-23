@@ -75,8 +75,9 @@ class PCR_Viewer(Stage):
         scale = np.array([1,1],dtype=np.float64)
 
         if self.depth is not None and self.rgb is not None and changed:
+            self.rgb = cv.resize(self.rgb, (self.depth.shape[1], self.depth.shape[0]))
+
             img = cv.cvtColor(self.rgb, cv.COLOR_BGR2RGB)
-            img = cv.resize(img, (self.depth.shape[1], self.depth.shape[0]))
 
             depth = (1000.0*self.depth).astype(np.uint16)
 
@@ -92,7 +93,7 @@ class PCR_Viewer(Stage):
 
             rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb_o3d, depth_o3d, convert_rgb_to_intensity=False)
 
-            pinhole_model = o3d.camera.PinholeCameraIntrinsic(img.shape[0],img.shape[1],
+            pinhole_model = o3d.camera.PinholeCameraIntrinsic(img.shape[0], img.shape[1],
                                                             K[0][0],
                                                             K[1][1],
                                                             K[0][2],
@@ -154,13 +155,14 @@ class PCR_Viewer(Stage):
                     x_pixel[1] *= scale[1]
 
                     cv.circle(depht_img, (int(x_pixel[0]), int(x_pixel[1])), 10, (255,0,0), -1)
+                    cv.circle(self.rgb, (int(x_pixel[0]), int(x_pixel[1])), 10, (255,0,0), -1)
 
         if depht_img is not None:
             
             cv.imshow("depth",depht_img)
 
             if self.rgb is not None:
-                cv.imshow("rgb", cv.resize(self.rgb, (depht_img.shape[1], depht_img.shape[0])))
+                cv.imshow("rgb", self.rgb)
 
         self.vis.poll_events()
         self.vis.update_renderer()

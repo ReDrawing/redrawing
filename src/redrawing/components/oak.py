@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 import depthai as dai
 import numpy as np
+import cv2 as cv
 
 from redrawing.components.stage import Stage
 from redrawing.components.oak_constants import *
@@ -20,13 +21,14 @@ class OAK_Stage(Stage):
 
     configs_default = {"frame_id": "oak",
                         "rgb_out": False,
-                        "rgb_resolution": [1920,1080],
+                        "rgb_resolution": [1280,720],
                         "nn_enable":{"bodypose":True},
                         "nn_model" : {"bodypose":OAK_BodyPose},
                         "depth" : False,
                         "depth_close" : False,
                         "depth_far": False,
                         "force_reconnection": True,
+                        "depth_filtering" : True
                     }
 
     gray_intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
@@ -163,6 +165,9 @@ class OAK_Stage(Stage):
                 depth_node.setExtendedDisparity(False)
             else:
                 depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
+                depth_node.setSubpixel(False)
+                depth_node.setExtendedDisparity(False)
+                print("AQUI")
 
             left_cam.out.link(depth_node.left)
             right_cam.out.link(depth_node.right)
@@ -226,7 +231,7 @@ class OAK_Stage(Stage):
             self._input_queue[link] = self._device.getInputQueue(link)
 
         if self._configs["depth"]:
-            self._depth_queue = self._device.getOutputQueue("depth",maxSize=5, blocking=False)
+            self._depth_queue = self._device.getOutputQueue("depth",maxSize=1, blocking=False)
 
         self._nn_queue = nn_queue
         self._cam_queue = cam_queue
@@ -266,7 +271,12 @@ class OAK_Stage(Stage):
 
                     depth = depth_output.getCvFrame()
 
-                    depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000)
+                    if  self._configs["depth_filtering"]:
+                        depth = depth.astype(np.float32)
+                        depth = cv.bilateralFilter(depth, 10, 3, 3)
+                        depth = depth.astype(np.uint16)
+
+                    depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000.0)
                     depth_img = Image(self._configs["frame_id"], (depth/np.max(depth))*256)
 
                     self._depth_frame = depth
@@ -315,16 +325,16 @@ class OAK_Stage(Stage):
 
         for x in range(point_x-(n_point//2)-1,point_x+(n_point//2)):
             
-            if x<0 or x>self._depth_frame.shape[0]:
+            if x<0 or x>=self._depth_frame.shape[0]:
                 continue
 
             for y in range(point_y-(n_point//2)-1,point_y+(n_point//2)):
-                if y<0 or y>self._depth_frame.shape[1]:
+                if y<0 or y>=self._depth_frame.shape[1]:
                     continue
-                if self._depth_frame[point_x,point_y] == 0:
+                if self._depth_frame[x,y] <= 0.3E+3 or self._depth_frame[x,y] >= 3.0E+3:
                     continue
 
-                x_space += k_inv @ (float(self._depth_frame[point_x,point_y])*x_pixel)
+                x_space += k_inv @ (float(self._depth_frame[x,y])*x_pixel)
                 n_pixel += 1
 
         if(n_pixel == 0):

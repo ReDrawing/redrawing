@@ -14,24 +14,38 @@ class BodyPose(Data):
     keypoints_names = [
     "HEAD"          ,
     "NOSE"          ,
+
     "EYE_R"         ,
     "EYE_L"         ,
+    "EYE_L_INNER"   ,
+    "EYE_R_INNER"   ,
+    "EYE_L_OUTER"   ,
+    "EYE_R_OUTER"   ,
+
     "EAR_R"         ,
     "EAR_L"         ,
+
+    "MOUTH_R",
+    "MOUTH_L",
+
     "NECK"          ,
     "SHOULDER_R"    ,
     "SHOULDER_L"    ,
+    "SPINE_SHOULDER" ,
+    "SPINE_MID"     ,
+    "SPINE_BASE"    ,
+
     "ELBOW_R"       ,
     "ELBOW_L"       ,
+
     "WRIST_R"       ,
     "WRIST_L"       ,
     "HAND_R"        ,
     "HAND_L"        ,
+    
     "HAND_THUMB_L"  ,
     "HAND_THUMB_R"  ,
-    "SPINE_SHOLDER" ,
-    "SPINE_MID"     ,
-    "SPINE_BASE"    ,
+
     "HIP_R"         ,
     "HIP_L"         ,
     "KNEE_R"        ,
@@ -82,7 +96,14 @@ class BodyPose(Data):
     "PINKY_PIP_R",
     "PINKY_DIP_R",
     "PINKY_TIP_R",
+
+    
+
+    "FOOT_R_INDEX",
+    "FOOT_L_INDEX"
     ]
+
+    
 
     def __init__(self, pixel_space=False, frame_id="UNKOWN", user_id = "UNKOWN", time=-1):
         '''!
@@ -230,7 +251,7 @@ class BodyPose(Data):
         for name in BodyPose.keypoints_names:
             kp1 = bodypose1.get_keypoint(name)
             kp2 = bodypose2.get_keypoint(name)
-            if (kp1 is not None) and  (kp2 is not None):
+            if (not np.isinf(kp1[0])) and  (not np.isinf(kp2[0])):
                 dist += np.linalg.norm(kp2-kp1)
                 count += 1
 
@@ -257,7 +278,7 @@ class BodyVel(BodyPose):
             kp1 = bodypose.get_keypoint(name)
             kp2 = bodypose_last.get_keypoint(name)
 
-            if (kp1 is not None) and  (kp2 is not None):
+            if (not np.isinf(kp1[0])) and  (not np.isinf(kp2[0])):
                 vel = kp2-kp1
                 vel /= deltaT
 
@@ -285,7 +306,7 @@ class BodyAccel(BodyPose):
             kp1 = bodyvel.get_keypoint(name)
             kp2 = bodyvel_last.get_keypoint(name)
 
-            if (kp1 is not None) and  (kp2 is not None):
+            if (not np.isinf(kp1[0])) and  (not np.isinf(kp2[0])):
                 accel = kp2-kp1
                 accel /= deltaT
 

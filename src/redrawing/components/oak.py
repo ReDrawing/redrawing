@@ -309,7 +309,7 @@ class OAK_Stage(Stage):
         except KeyboardInterrupt as ki:
             raise ki
         except Exception as err:
-            if self._configs["force_reconnection"] == False:
+            if self._configs["force_reconnection"]:
                 self.setup()
             else:
                 raise err

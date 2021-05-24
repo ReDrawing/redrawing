@@ -1,3 +1,4 @@
+from math import exp
 import os
 
 import depthai as dai
@@ -18,16 +19,16 @@ class OAK_Blazepose(OAK_NN_Model):
     outputs = {"bodypose": BodyPose, "bodypose_3d":BodyPose}
 
     kp_name = ["NOSE",
-                None,
+                "EYE_R_INNER",
                 "EYE_R",
-                None,
-                None,
+                "EYE_R_OUTER",
+                "EYE_L_INNER",
                 "EYE_L",
-                None,
+                "EYE_L_OUTER",
                 "EAR_R",
                 "EAR_L",
-                None,
-                None,
+                "MOUTH_R",
+                "MOUTH_L",
                 "SHOULDER_R",
                 "SHOULDER_L",
                 "ELBOW_R",
@@ -48,8 +49,8 @@ class OAK_Blazepose(OAK_NN_Model):
                 "ANKLE_L",
                 "FOOT_R",
                 "FOOT_L",
-                None,
-                None]
+                "FOOT_R_INDEX",
+                "FOOT_L_INDEX"]
 
     def __init__(self):
         self.nodes = None
@@ -146,13 +147,23 @@ class OAK_Blazepose(OAK_NN_Model):
             if lm_inference is not None:
                 self.blazepose.lm_postprocess(r, lm_inference)
 
+                try:
+                    r.landmarks_padded[:,:2]
+                except:
+                    continue
+
                 frame = self.videoframe.copy()
 
                 bp = BodyPose()
-                bp_3d = BodyPose()
+                bp_3d = None
 
-                points = r.landmarks_abs
 
+                points = None
+                try:
+                    points = r.landmarks_abs
+                    bp_3d = BodyPose()
+                except:
+                    pass
 
                 for i,x_y in enumerate(r.landmarks_padded[:,:2]):
 
@@ -162,10 +173,13 @@ class OAK_Blazepose(OAK_NN_Model):
                         continue
                     
                     bp.add_keypoint(name,x_y[0],x_y[1])
-                    bp_3d.add_keypoint(name,points[i][0],points[i][1],points[i][2])
+                    if points is not None:
+                        bp_3d.add_keypoint(name,points[i][0],points[i][1],points[i][2])
 
                 oak_stage._setOutput(bp, "bodypose")
-                oak_stage._setOutput(bp_3d, "bodypose_3d")
+
+                if points is not None:
+                    oak_stage._setOutput(bp_3d, "bodypose_3d")
 
             
 

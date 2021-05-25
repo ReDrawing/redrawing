@@ -25,13 +25,15 @@ if __name__ == '__main__':
     pipeline.insert_stage(oak_stage)
     pipeline.insert_stage(udp_stage)
 
-    pipeline.create_connection(oak_stage, "palm_detection", udp_stage, "send_msg", 1)
+    pipeline.create_connection(oak_stage, "palm_detection_list", udp_stage, "send_msg_list", 1)
 
     while True:
         pipeline.runOnce()
 
-        palm_detection = oak_stage.getOutput("palm_detection")
+        palm_detection = oak_stage.getOutput("palm_detection_list")
 
         if palm_detection is not None:
-
-            print(palm_detection.bounding_box)
+            for palm in palm_detection:
+                print(palm.bounding_box, end="  |   ")
+        
+            print()

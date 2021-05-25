@@ -24,7 +24,7 @@ class OAK_PalmDetector(OAK_NN_Model):
 
     input_size = [128,128]
 
-    outputs = {"palm_detection": ObjectDetection}
+    outputs = {"palm_detection_list": list}
 
     def __init__(self):
         self.node = None
@@ -67,13 +67,18 @@ class OAK_PalmDetector(OAK_NN_Model):
             return
 
         self.HandTracker.pd_postprocess(nn_output)
+
+        results = []
+
         for r in self.HandTracker.regions:
             box = (np.array(r.pd_box) * self.HandTracker.video_size).astype(int)
             ponto =np.array([[box[0], box[1]], [box[0]+box[2], box[1]+box[3]]])
             result = ObjectDetection()
             result.bounding_box = ponto
 
-            oak_stage._setOutput(result, 'palm_detection')
+            results.append(result)
+
+        oak_stage._setOutput(results, 'palm_detection_list')
 
 class OAK_HandFeature(OAK_NN_Model):
     '''!

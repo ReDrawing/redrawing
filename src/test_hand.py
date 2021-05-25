@@ -12,7 +12,8 @@ if __name__ == '__main__':
 
     oak_configs = { "depth":False,
                     "nn_enable":{"bodypose":False, "hand_pose":True}, 
-                    "force_reconnection": False}
+                    "force_reconnection": False,
+                    "rgb_out": True, "rgb_resolution":[128,128]}
     oak_stage = OAK_Stage(oak_configs)
 
     udp_stage = UDP_Stage()
@@ -31,9 +32,23 @@ if __name__ == '__main__':
         pipeline.runOnce()
 
         palm_detection = oak_stage.getOutput("palm_detection_list")
+        hand_pose = oak_stage.getOutput("hand_pose_list")
+        gestures = oak_stage.getOutput("gesture_list")
 
-        if palm_detection is not None:
+        '''if palm_detection is not None:
             for palm in palm_detection:
                 print(palm.bounding_box, end="  |   ")
         
+            print()'''
+        
+        if hand_pose is not None:
+            for hand in hand_pose:
+                print(hand.WRIST_R, end=" ")
+
+        if gestures is not None:
+            for gesture in gestures:
+                print(gesture._gesture, end=" ")
+
+        if (gestures is not None) or (hand_pose is not None):
             print()
+            

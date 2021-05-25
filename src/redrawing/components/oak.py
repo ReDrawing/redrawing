@@ -13,6 +13,7 @@ from redrawing.data_interfaces.bodypose import BodyPose
 import redrawing.third_models.oak_models as oak_models
 from redrawing.third_models.oak_models.human_pose import OAK_BodyPose
 from redrawing.third_models.oak_models.blazepose import OAK_Blazepose
+from redrawing.third_models.oak_models.hand_pose import OAK_PalmDetector
 
 class OAK_Stage(Stage):
     '''!
@@ -23,8 +24,8 @@ class OAK_Stage(Stage):
     configs_default = {"frame_id": "oak",
                         "rgb_out": False,
                         "rgb_resolution": [1280,720],
-                        "nn_enable":{"bodypose":True, "blazepose": False},
-                        "nn_model" : {"bodypose":OAK_BodyPose, "blazepose": OAK_Blazepose},
+                        "nn_enable":{"bodypose":True, "blazepose": False, "hand_pose": False},
+                        "nn_model" : {"bodypose":OAK_BodyPose, "blazepose": OAK_Blazepose, "hand_pose": OAK_PalmDetector},
                         "depth" : False,
                         "depth_close" : False,
                         "depth_far": False,

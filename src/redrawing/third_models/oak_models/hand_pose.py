@@ -5,7 +5,6 @@ import numpy as np
 import cv2
 from redrawing.data_interfaces.gesture import Gesture
 from redrawing.third_models.oak_models.HandTracker import HandTracker
-
 from redrawing.data_interfaces.bodypose import BodyPose
 from redrawing.data_interfaces.object_detection import ObjectDetection
 from redrawing.components.oak_constants import *
@@ -33,7 +32,7 @@ class OAK_PalmDetector(OAK_NN_Model):
         self.HandTracker = HandTracker()
 
         self.HandTracker.video_size = 128
-
+        self.HandTracker.use_gesture = True
         self.input_size = OAK_PalmDetector.input_size
         self.input_type = COLOR
 
@@ -83,8 +82,13 @@ class OAK_PalmDetector(OAK_NN_Model):
         oak_stage._setOutput(results_palm, 'palm_detection_list')
 
         # Features/Keypoints -> Thiago
-
+        list_regions = []
+        for i,r in enumerate(self.HandTracker.regions):
+            gesture = Gesture()
+            gesture._gesture=r.gesture
+            list_regions.append(gesture)
         
+        oak_stage._setOutput(list_regions, 'gesture_list')
 
 
 class OAK_HandFeature(OAK_NN_Model):

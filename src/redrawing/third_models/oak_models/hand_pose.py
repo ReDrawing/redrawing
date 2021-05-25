@@ -3,6 +3,7 @@ import time
 import depthai as dai
 import numpy as np
 import cv2
+from redrawing.data_interfaces.gesture import Gesture
 from redrawing.third_models.oak_models.HandTracker import HandTracker
 
 from redrawing.data_interfaces.bodypose import BodyPose
@@ -24,7 +25,8 @@ class OAK_PalmDetector(OAK_NN_Model):
 
     input_size = [128,128]
 
-    outputs = {"palm_detection_list": list}
+    outputs = {"palm_detection_list": list,
+                "gesture_list" : list}
 
     def __init__(self):
         self.node = None
@@ -68,7 +70,7 @@ class OAK_PalmDetector(OAK_NN_Model):
 
         self.HandTracker.pd_postprocess(nn_output)
 
-        results = []
+        results_palm = []
 
         for r in self.HandTracker.regions:
             box = (np.array(r.pd_box) * self.HandTracker.video_size).astype(int)
@@ -76,9 +78,14 @@ class OAK_PalmDetector(OAK_NN_Model):
             result = ObjectDetection()
             result.bounding_box = ponto
 
-            results.append(result)
+            results_palm.append(result)
 
-        oak_stage._setOutput(results, 'palm_detection_list')
+        oak_stage._setOutput(results_palm, 'palm_detection_list')
+
+        # Features/Keypoints -> Thiago
+
+        
+
 
 class OAK_HandFeature(OAK_NN_Model):
     '''!

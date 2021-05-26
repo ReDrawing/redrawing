@@ -96,9 +96,9 @@ class OAK_Blazepose(OAK_NN_Model):
         
 
         xLink_in = oak_stage.pipeline.createXLinkIn()
-        xLink_in.setStreamName("lm_in")
+        xLink_in.setStreamName("blazepose_lm_in")
         xLink_in.out.link(lm_node.input)
-        oak_stage.input_link['lm_in'] = xLink_in
+        oak_stage.input_link['blazepose_lm_in'] = xLink_in
         
         self.nodes = {"blazepose_pd": pd_node,
                         "blazepose_lm": lm_node}
@@ -106,7 +106,6 @@ class OAK_Blazepose(OAK_NN_Model):
         return self.nodes
 
     def decode_result(self, oak_stage):
-        
         
         video_frame = oak_stage.cam_output["rgb"]
 
@@ -122,8 +121,9 @@ class OAK_Blazepose(OAK_NN_Model):
         
         self.blazepose.frame_size = video_frame.shape[0]
 
-
         pd_inference = oak_stage.nn_output["blazepose_pd"]
+
+        
 
         if pd_inference is not None:
             self.blazepose.pd_postprocess(pd_inference)
@@ -132,9 +132,10 @@ class OAK_Blazepose(OAK_NN_Model):
             return
 
 
-        lm_in = oak_stage._oak_input_queue['lm_in']
+        lm_in = oak_stage._oak_input_queue['blazepose_lm_in']
 
         self.blazepose.nb_active_regions = 0
+
 
         for i,r in enumerate(self.blazepose.regions):
             frame_nn = mpu.warp_rect_img(r.rect_points, video_frame, self.blazepose.lm_input_length, self.blazepose.lm_input_length)
@@ -143,7 +144,7 @@ class OAK_Blazepose(OAK_NN_Model):
             lm_in.send(nn_data)
 
             lm_inference = oak_stage.nn_output["blazepose_lm"]
-
+        
             if lm_inference is not None:
                 self.blazepose.lm_postprocess(r, lm_inference)
 

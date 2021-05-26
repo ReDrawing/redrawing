@@ -30,7 +30,9 @@ if __name__ == '__main__':
     pipeline.insert_stage(udp_stage)
     pipeline.insert_stage(user_mng)
 
-    pipeline.create_connection(oak_stage, "bodypose_3d", user_mng, "bodypose", 1)
-    pipeline.create_connection(user_mng, "bodypose_list", udp_stage, "send_msg_list", 1)
+    #pipeline.create_connection(oak_stage, "bodypose_3d", user_mng, "bodypose", 1)
+    #pipeline.create_connection(user_mng, "bodypose_list", udp_stage, "send_msg_list", 1)
+
+    pipeline.create_connection(oak_stage, "bodypose_3d", udp_stage, "send_msg", 1)
 
     pipeline.run()

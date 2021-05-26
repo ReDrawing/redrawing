@@ -237,7 +237,7 @@ class OAK_Stage(Stage):
         input_queue = {}
 
         for nn in nn_xout:
-            nn_queue[nn] = self._device.getOutputQueue(nn, maxSize=5, blocking=False)
+            nn_queue[nn] = self._device.getOutputQueue(nn, maxSize=1, blocking=False)
         
         for cam in cam_xout:
             cam_queue[cam] = self._device.getOutputQueue(cam, maxSize=5, blocking=False)
@@ -272,6 +272,8 @@ class OAK_Stage(Stage):
                 output = self._nn_queue[nn].tryGet()
             
                 self.nn_output[nn] = output
+            
+            
 
             for cam in self._cam_queue:
                 self.cam_output[cam] = self._cam_queue[cam].tryGet()

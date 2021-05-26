@@ -93,9 +93,9 @@ class OAK_PalmDetector(OAK_NN_Model):
         nn_node.input.setBlocking(False)
 
         xLink_in = oak_stage.pipeline.createXLinkIn()
-        xLink_in.setStreamName("lm_in")
+        xLink_in.setStreamName("hand_lm_in")
         xLink_in.out.link(lm_node.input)
-        oak_stage.input_link['lm_in'] = xLink_in
+        oak_stage.input_link['hand_lm_in'] = xLink_in
         
         self.nodes = {"palm_detector": nn_node,
                         "hand_landmark": lm_node}
@@ -142,7 +142,7 @@ class OAK_PalmDetector(OAK_NN_Model):
         ##################################################
         # Hand landmarks
 
-        lm_in = oak_stage._oak_input_queue['lm_in']
+        lm_in = oak_stage._oak_input_queue['hand_lm_in']
 
         
 

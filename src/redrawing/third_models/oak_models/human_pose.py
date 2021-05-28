@@ -96,7 +96,7 @@ def bd_process_result(oak_stage, nn_output):
             z = 1.0
 
             if depth:
-                x_space = oak_stage.get3DPosition(x,y, OAK_BodyPose.input_size)
+                x_space = oak_stage.get3DPosition(x,y, np.flip(OAK_BodyPose.input_size))
                 x = x_space[0]
                 y = x_space[1]
                 z = x_space[2]

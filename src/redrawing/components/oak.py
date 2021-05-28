@@ -31,7 +31,9 @@ class OAK_Stage(Stage):
                         "depth_far": False,
                         "force_reconnection": True,
                         "depth_filtering" : True,
-                        "depth_point_mode" : ""
+                        "depth_point_mode" : "median",
+                        "depth_roi_size" : 50,
+                        "depth_host" : True
                     }
 
     gray_intrinsic = np.array([[860.0, 0.0, 640.0], [0.0, 860.0, 360.0], [0.0, 0.0, 1.0]],dtype=np.float64)
@@ -40,15 +42,14 @@ class OAK_Stage(Stage):
     #color_intrinsic = np.array([[373.95694075, 0, 158.39368282], [0, 375.78372531, 170.28561667], [0,0,1.]],dtype=np.float64)
     #color_calib_size = [300,300]
 
-    color_intrinsic = np.array([[1488.843994140625, 0.0, 956.4694213867188], [0.0, 1486.9603271484375, 546.5672607421875], [0.0, 0.0, 1.0]],dtype=np.float64)
-    #color_intrinsic = np.array([[1486.9603271484375, 0.0, 546.5672607421875], [0.0,1488.843994140625 , 956.4694213867188], [0.0, 0.0, 1.0]],dtype=np.float64)
-    color_calib_size = [1920,1080]
+    #color_intrinsic = np.array([[1488.843994140625, 0.0, 956.4694213867188], [0.0, 1486.9603271484375, 546.5672607421875], [0.0, 0.0, 1.0]],dtype=np.float64)
+    color_intrinsic = np.array([[1486.9603271484375, 0.0, 546.5672607421875], [0.0,1488.843994140625 , 956.4694213867188], [0.0, 0.0, 1.0]],dtype=np.float64)
+    color_calib_size = [1080,1920]
 
     color_intrinsic_inv = np.linalg.inv(color_intrinsic)
 
     d = -1
     sigma = 3
-    n_point = 50
 
     def __init__(self, configs={}):
         '''!
@@ -169,6 +170,7 @@ class OAK_Stage(Stage):
 
             depth_node = pipeline.createStereoDepth()
             depth_node.setLeftRightCheck(True)
+            depth_node.setConfidenceThreshold(200)
 
             
             if (not using_nn) and self._configs["depth_close"] == True: #See close -> Extended
@@ -178,6 +180,7 @@ class OAK_Stage(Stage):
                 depth_node.setSubpixel(True)
                 depth_node.setExtendedDisparity(False)
             else:
+                #depth_node.setDepthAlign(dai.CameraBoardSocket.RGB)
                 depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
                 depth_node.setSubpixel(False)
                 depth_node.setExtendedDisparity(False)
@@ -186,6 +189,22 @@ class OAK_Stage(Stage):
             right_cam.out.link(depth_node.right)
 
             self.depth_node = depth_node
+
+            if self._configs["depth_host"] == False:
+                spatialLocationCalculator = pipeline.createSpatialLocationCalculator()
+                
+                topLeft = dai.Point2f(0.4, 0.4)
+                bottomRight = dai.Point2f(0.6, 0.6)
+                config = dai.SpatialLocationCalculatorConfigData()
+                config.depthThresholds.lowerThreshold = 100
+                config.depthThresholds.upperThreshold = 10000
+                config.roi = dai.Rect(topLeft, bottomRight)
+                spatialLocationCalculator.setWaitForConfigInput(False)
+                spatialLocationCalculator.initialConfig.addROI(config)
+
+                depth_node.disparity.link(spatialLocationCalculator.inputDepth)
+
+                self.spatialLocationCalculator = spatialLocationCalculator
 
         self.cam['rgb'] = rgb_cam
         self.cam['left'] = left_cam
@@ -223,18 +242,32 @@ class OAK_Stage(Stage):
         depth_xout = None
 
         if self._configs["depth"] == True:
-            xout = pipeline.createXLinkOut()
-            xout.setStreamName("depth")
-            self.depth_node.depth.link(xout.input)
-            depth_xout = xout
 
+            if self._configs["depth_host"] == False:
+                xout = pipeline.createXLinkOut()
+                xout.setStreamName("spartialData")
+                self.spatialLocationCalculator.out.link(xout.input)
+
+                xin = pipeline.createXLinkIn()
+                xin.setStreamName("spatialConfig")
+                xin.out.link(self.spatialLocationCalculator.inputConfig)
+
+                xout = pipeline.createXLinkOut()
+                xout.setStreamName("depth")
+                self.spatialLocationCalculator.passthroughDepth.link(xout.input)
+                depth_xout = xout
+
+            else:
+                xout = pipeline.createXLinkOut()
+                xout.setStreamName("depth")
+                self.depth_node.depth.link(xout.input)
+                depth_xout = xout
 
         self._device = dai.Device(pipeline)
         self._device.startPipeline()
 
         nn_queue = {}
         cam_queue = {}
-        input_queue = {}
 
         for nn in nn_xout:
             nn_queue[nn] = self._device.getOutputQueue(nn, maxSize=1, blocking=False)
@@ -250,6 +283,10 @@ class OAK_Stage(Stage):
 
         if self._configs["depth"]:
             self._depth_queue = self._device.getOutputQueue("depth",maxSize=1, blocking=False)
+
+            if self._configs["depth_host"] == False:
+                self._spatial_queue = self._device.getOutputQueue("spartialData",maxSize=1, blocking=False)
+                self._oak_input_queue["spatialConfig"] = self._device.getInputQueue("spatialConfig")
 
         self._nn_queue = nn_queue
         self._cam_queue = cam_queue
@@ -292,10 +329,17 @@ class OAK_Stage(Stage):
 
                     depth = depth_output.getCvFrame()
 
-                    if  self._configs["depth_filtering"]:
+                    if  self._configs["depth_filtering"] == "bilateral":
                         depth = depth.astype(np.float32)
                         depth = cv.bilateralFilter(depth, self.d, self.sigma, self.sigma)
                         depth = depth.astype(np.uint16)
+                    elif self._configs["depth_filtering"] == "median":
+                        depth = depth.astype(np.float32)
+                        depth = cv.medianBlur(depth, 5)
+
+                        depth = depth.astype(np.uint16)
+
+                    
 
                     depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000.0)
                     depth_img = Image(self._configs["frame_id"], (depth/np.max(depth))*256)
@@ -322,8 +366,13 @@ class OAK_Stage(Stage):
             @todo Alterar setup para alinhar o depth com o centro, e utilizar intrisics apropriadas
         '''
 
-        point_x *= self._depth_frame.shape[1]/size[0]
-        point_y *= self._depth_frame.shape[0]/size[1]
+        try:
+            self._depth_frame
+        except:
+            return np.array([np.inf,np.inf,np.inf] ,dtype=np.float64)
+
+        point_x *= self._depth_frame.shape[0]/size[0]
+        point_y *= self._depth_frame.shape[1]/size[1]
 
         x_pixel = np.array([point_x,point_y,1.0],dtype=np.float64)
 
@@ -344,7 +393,7 @@ class OAK_Stage(Stage):
 
         k_inv = np.linalg.inv(K)
 
-        n_point = self.n_point
+        n_point = self._configs["depth_roi_size"]
         
         x_min = point_x-(n_point//2)-1
         x_max = point_x+(n_point//2)
@@ -361,20 +410,52 @@ class OAK_Stage(Stage):
             x_max = self._depth_frame.shape[0]
         if y_max >= self._depth_frame.shape[1]:
             y_max = self._depth_frame.shape[1]
+
+        if self._configs["depth_host"] == False:
+            topLeft = dai.Point2f(x_min, y_min)
+            bottomRight = dai.Point2f(x_max, y_max)
+
+            config = dai.SpatialLocationCalculatorConfigData()
+            config.depthThresholds.lowerThreshold = 100
+            config.depthThresholds.upperThreshold = 10000
+            config.roi = dai.Rect(topLeft, bottomRight).normalize(width=self._depth_frame.shape[1], height=self._depth_frame.shape[0])
+
+            cfg = dai.SpatialLocationCalculatorConfig()
+            cfg.addROI(config)
+
+            self._oak_input_queue["spatialConfig"].send(cfg)
+
+            spatialdata = self._spatial_queue.get()
+
+            x_space = np.zeros(3, dtype = np.float64)
+
+            x_space[0] = spatialdata[0].spatialCoordinates.x
+            x_space[1] = spatialdata[0].spatialCoordinates.y
+            x_space[2] = spatialdata[0].spatialCoordinates.z
+
+            return []
         
         samples = self._depth_frame[x_min:x_max,y_min:y_max].flatten()
         samples = samples[samples != 0]
-        
+        samples = samples[samples>100]
 
         if samples.shape[0] == 0:
             return np.array([np.inf,np.inf,np.inf] ,dtype=np.float64)
         
+        
+
         z = 0
 
         if self._configs["depth_point_mode"] == "median":
             z = np.median(samples)
         elif self._configs["depth_point_mode"] == "mean":
             z = np.mean(samples)
+        elif self._configs["depth_point_mode"] == "min":
+            samples = np.sort(samples)
+            z = np.mean(samples[:int(samples.shape[0]*0.1)])
+        elif self._configs["depth_point_mode"] == "max":
+            samples = np.sort(samples)
+            z = np.median(samples[int(samples.shape[0]*0.9):])
         else:
 
 

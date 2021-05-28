@@ -33,6 +33,7 @@ class PCR_Viewer(Stage):
         self.depth = None
         self.rgb = None
         self.started = False
+        self.x_pixel = None
 
         self.point_cloud = None
 
@@ -124,7 +125,7 @@ class PCR_Viewer(Stage):
             for geometry in self.bodypose_geometry:
                 self.vis.remove_geometry(geometry, False)
                 pass
-
+            self.x_pixel = []
             for bd in bodyposes:
                 for name in BodyPose.keypoints_names:
                     kp = bd.get_keypoint(name)
@@ -154,15 +155,18 @@ class PCR_Viewer(Stage):
                     x_pixel[0] *= scale[0]
                     x_pixel[1] *= scale[1]
 
-                    cv.circle(depht_img, (int(x_pixel[0]), int(x_pixel[1])), 10, (255,0,0), -1)
-                    cv.circle(self.rgb, (int(x_pixel[0]), int(x_pixel[1])), 10, (255,0,0), -1)
+                    self.x_pixel.append(x_pixel)
+
+        if self.x_pixel is not None:
+            for x_pixel in self.x_pixel:
+                cv.circle(depht_img, (int(x_pixel[0]), int(x_pixel[1])), 2, (255,0,0), -1)
+                cv.circle(self.rgb, (int(x_pixel[0]), int(x_pixel[1])), 2, (255,0,0), -1)
 
         if depht_img is not None:
-            
-            cv.imshow("depth",depht_img)
+            cv.imshow("depth",cv.resize(depht_img,(640,400)))
 
             if self.rgb is not None:
-                cv.imshow("rgb", self.rgb)
+                cv.imshow("rgb", cv.resize(self.rgb,(640,400)))
 
         self.vis.poll_events()
         self.vis.update_renderer()

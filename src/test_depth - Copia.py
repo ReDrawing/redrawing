@@ -8,9 +8,11 @@ from redrawing.components.pc_viewer import PCR_Viewer
 
 if __name__ == '__main__':
 
-    oak_configs = { "depth":True, "depth_close":True, "depth_filtering":True, "depth_point_mode": "", 
+    oak_configs = { "depth":True, "depth_close":True, "depth_filtering":"", "depth_point_mode": "min", 
+                    "depth_roi_size":25, "depth_host": True,
                     "nn_enable":{"bodypose":True}, 
-                    "rgb_out": True}
+                    "rgb_out": True, "rgb_resolution" : [640,400],
+                    "force_reconnection": False}
     oak_stage = OAK_Stage(oak_configs)
 
     udp_stage = UDP_Stage()

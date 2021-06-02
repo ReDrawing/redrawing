@@ -159,8 +159,8 @@ class PCR_Viewer(Stage):
 
         if self.x_pixel is not None:
             for x_pixel in self.x_pixel:
-                cv.circle(depht_img, (int(x_pixel[0]), int(x_pixel[1])), 2, (255,0,0), -1)
-                cv.circle(self.rgb, (int(x_pixel[0]), int(x_pixel[1])), 2, (255,0,0), -1)
+                cv.circle(depht_img, (int(x_pixel[0]), int(x_pixel[1])), 10, (255,0,0), -1)
+                cv.circle(self.rgb, (int(x_pixel[0]), int(x_pixel[1])), 10, (255,0,0), -1)
 
         if depht_img is not None:
             cv.imshow("depth",cv.resize(depht_img,(640,400)))

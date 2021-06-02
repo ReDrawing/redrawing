@@ -31,6 +31,8 @@ if __name__ == '__main__':
     pipeline.create_connection(oak_stage, "bodypose_3d", udp_stage, "send_msg", 1)
     pipeline.create_connection(oak_stage, "gesture_list", udp_stage, "send_msg_list", 1)
 
+    last_gesture = None
+
     while True:
         pipeline.runOnce()
 
@@ -47,9 +49,9 @@ if __name__ == '__main__':
 
         #print("Hand: ")
 
-        if hand_pose is not None:
+        '''if hand_pose is not None:
             for hand in hand_pose:
-                print(hand.WRIST_R, end=" ")
+                print(hand.WRIST_R, end=" ")'''
 
         if gestures is not None:
             for gesture in gestures:

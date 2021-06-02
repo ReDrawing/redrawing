@@ -121,30 +121,32 @@ class OAK_PalmDetector(OAK_NN_Model):
 
         nn_output = oak_stage.nn_output["palm_detector"]
 
-        if nn_output is None:
-            return
+        if nn_output is not None:
 
-        self.HandTracker.pd_postprocess(nn_output)
+            self.HandTracker.pd_postprocess(nn_output)
 
-        results_palm = []
+            results_palm = []
 
-        for r in self.HandTracker.regions:
-            box = (np.array(r.pd_box) * self.HandTracker.video_size).astype(int)
-            ponto =np.array([[box[0], box[1]], [box[0]+box[2], box[1]+box[3]]])
-            result = ObjectDetection()
-            result.bounding_box = ponto
+            for r in self.HandTracker.regions:
+                box = (np.array(r.pd_box) * self.HandTracker.video_size).astype(int)
+                ponto =np.array([[box[0], box[1]], [box[0]+box[2], box[1]+box[3]]])
+                result = ObjectDetection()
+                result.bounding_box = ponto
 
-            results_palm.append(result)
+                results_palm.append(result)
 
-        oak_stage._setOutput(results_palm, 'palm_detection_list')
+            oak_stage._setOutput(results_palm, 'palm_detection_list')
         
         # Features/Keypoints -> Thiago
         ##################################################
         # Hand landmarks
 
-        lm_in = oak_stage._oak_input_queue['hand_lm_in']
+        try:
+            self.HandTracker.regions
+        except:
+            return        
 
-        
+        lm_in = oak_stage._oak_input_queue['hand_lm_in']
 
         for i,r in enumerate(self.HandTracker.regions):
             img_hand = mpu.warp_rect_img(r.rect_points, video_frame, self.HandTracker.lm_input_length, self.HandTracker.lm_input_length)
@@ -152,7 +154,7 @@ class OAK_PalmDetector(OAK_NN_Model):
             nn_data.setLayer("input_1", to_planar(img_hand, (self.HandTracker.lm_input_length, self.HandTracker.lm_input_length)))
             lm_in.send(nn_data)
         
-            inference = oak_stage.nn_output["hand_landmark"] 
+            inference = oak_stage._nn_queue["hand_landmark"].get()
 
             if inference is not None:
 

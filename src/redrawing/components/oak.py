@@ -84,7 +84,7 @@ class OAK_Stage(Stage):
 
         self.pipeline = None
         self.cam = {}
-        self.input_queue = {}
+        self._oak_input_queue = {}
         self.input_link = {}
         
     
@@ -273,13 +273,13 @@ class OAK_Stage(Stage):
             nn_queue[nn] = self._device.getOutputQueue(nn, maxSize=1, blocking=False)
         
         for cam in cam_xout:
-            cam_queue[cam] = self._device.getOutputQueue(cam, maxSize=5, blocking=False)
+            cam_queue[cam] = self._device.getOutputQueue(cam, maxSize=1, blocking=False)
 
 
         self._oak_input_queue = {}
 
         for link in self.input_link:
-            self._oak_input_queue[link] = self._device.getInputQueue(link)
+            self._oak_input_queue[link] = self._device.getInputQueue(link, maxSize=1, blocking=False)
 
         if self._configs["depth"]:
             self._depth_queue = self._device.getOutputQueue("depth",maxSize=1, blocking=False)

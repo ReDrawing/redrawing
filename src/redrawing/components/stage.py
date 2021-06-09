@@ -31,6 +31,7 @@ class Stage(ABC):
         self.output_values = {}
 
         self._context = {}
+        self.substages = []
 
         new_configs = deepcopy(type(self).configs_default)
 

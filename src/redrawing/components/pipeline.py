@@ -232,6 +232,7 @@ class Pipeline(ABC):
         
         self.substages_configs[superstage].append({"substage":substage, "run_before": run_before})
 
+        superstage.substages.append(substage)
 
     @abstractmethod
     def run(self):

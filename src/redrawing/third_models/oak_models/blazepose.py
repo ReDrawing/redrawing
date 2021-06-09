@@ -124,7 +124,6 @@ class OAK_Blazepose(OAK_Substage):
         return {"blazepose_lm_in": lm_in}
 
     def process(self, context):
-
         video_frame = context["frame"][OAK_Stage.COLOR]
 
         if video_frame is None:
@@ -138,7 +137,6 @@ class OAK_Blazepose(OAK_Substage):
         
         self.blazepose.frame_size = video_frame.shape[0]
         pd_inference = context["output_queues"]["blazepose_pd"].tryGet()
-
 
         if pd_inference is not None:
             self.blazepose.pd_postprocess(pd_inference)
@@ -157,10 +155,13 @@ class OAK_Blazepose(OAK_Substage):
             context["input_queues"]['blazepose_lm_in'].send(nn_data)
 
             lm_inference = context["output_queues"]['blazepose_lm'].get()
+
+            
         
             self.blazepose.lm_postprocess(r, lm_inference)
 
             if r.lm_score < self.blazepose.lm_score_threshold:
+
                 continue
 
             bp = BodyPose()
@@ -181,7 +182,7 @@ class OAK_Blazepose(OAK_Substage):
 
             bodyposes.append(bp)
             bodyposes_3d.append(bp_3d)
-
+            
         self._setOutput(bodyposes, "bodypose_list")
         self._setOutput(bodyposes_3d, "bodypose3d_list")
             

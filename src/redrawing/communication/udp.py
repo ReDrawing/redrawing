@@ -9,10 +9,18 @@ class UDP_Stage(Stage):
     '''
 
     configs_default = { "ip" : "127.0.0.1",
-                        "port" : 6000}
+                        "port" : 6000,
+                        "inputs_list": [],
+                        "inputs": []}
 
     def __init__(self, configs={}):
         super().__init__(configs=configs)
+
+        for input_channel in self._configs["inputs"]:
+            self.addInput(input_channel, Data)
+
+        for input_channel in self._configs["inputs_list"]:
+            self.addInput(input_channel, list)
 
         self.addInput("send_msg", Data)
         self.addInput("send_msg_list", list)
@@ -35,7 +43,7 @@ class UDP_Stage(Stage):
         '''
         if not isinstance(data, Data):
             raise Exception("data must be of Data class")
-        
+
         msg = data.toMessage()
 
         self.sock.sendto(msg, (self.ip, self.port))
@@ -45,15 +53,30 @@ class UDP_Stage(Stage):
             Gets the inputs and send to the address 
         '''
 
+        data_list = []
+
         if self.has_input("send_msg"):
             dataIn = self._getInput("send_msg")
-            self._send_msg(dataIn)
+            data_list.append(dataIn)
         
         if self.has_input("send_msg_list"):
             dataIn = self._getInput("send_msg_list")
             for data in dataIn:
-                self._send_msg(data)
+                data_list.append(data)
 
+        for input_channel in self._configs["inputs"]:
+            if self.has_input(input_channel):
+                dataIn = self._getInput(input_channel)
+                data_list.append(dataIn)
+
+        for input_channel in self._configs["inputs_list"]:
+            if self.has_input(input_channel):
+                dataIn = self._getInput(input_channel)
+                for data_item in dataIn:
+                    data_list.append(data_item)
+        
+        for data in data_list:
+            self._send_msg(data)
 
 def send_data(data):
     '''!

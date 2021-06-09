@@ -297,7 +297,7 @@ class SingleProcess_Pipeline(Pipeline):
 
             for substage in self.substages_configs[stage]:
                 if substage["run_before"] == False:
-                     substage["substage"].run(stage._context)
+                    substage["substage"].run(stage._context)
 
 
     def create_queue(self, max_size):

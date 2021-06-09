@@ -308,7 +308,9 @@ class OAK_Stage(Stage):
         self.camera_calibration_size = {}
 
         calibObj = device.readCalibration()
-        M_color, width, height = np.array(calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB))
+        M_color = np.array(calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[0])
+        width = calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[1]
+        height = calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[2]
         M_left = np.array(calibObj.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, 1280, 720))
         M_right = np.array(calibObj.getCameraIntrinsics(dai.CameraBoardSocket.RIGHT, 1280, 720))
 

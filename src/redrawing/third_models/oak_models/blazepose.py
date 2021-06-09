@@ -6,17 +6,13 @@ import numpy as np
 import cv2
 
 from redrawing.data_interfaces.bodypose import BodyPose
-from redrawing.components.oak_constants import *
-from redrawing.components.oak_model import OAK_NN_Model
+from redrawing.components.oak import OAK_Stage
+from redrawing.components.oak_substage import OAK_Substage
 import redrawing.third_models.oak_models as oak_models
 from redrawing.third_models.oak_models.BlazeposeDepthai import BlazeposeDepthai, to_planar
 import redrawing.third_models.oak_models.mediapipe_utils as mpu
 
-class OAK_Blazepose(OAK_NN_Model):
-
-    input_size = [128,128]
-
-    outputs = {"bodypose": BodyPose, "bodypose_3d":BodyPose}
+class OAK_Blazepose(OAK_Substage):
 
     kp_name = ["NOSE",
                 "EYE_R_INNER",
@@ -52,11 +48,16 @@ class OAK_Blazepose(OAK_NN_Model):
                 "FOOT_R_INDEX",
                 "FOOT_L_INDEX"]
 
-    def __init__(self):
-        self.nodes = None
-        
-        self.input_size = OAK_Blazepose.input_size
+    configs_default = {}
 
+    def __init__(self, configs={}):
+        super().__init__(configs, name="blazepose", color_input_size=[128,128], color_out=True)
+
+        self.addOutput("bodypose_list", list)
+        self.addOutput("bodypose3d_list", list)
+
+
+    def setup(self):
         self.blazepose = BlazeposeDepthai()
 
         self.blazepose.lm_input_length = 256
@@ -64,50 +65,67 @@ class OAK_Blazepose(OAK_NN_Model):
         self.blazepose.pad_w = 0
 
         self.videoframe = None
-        self.pd_inference = None
         self.lm_inference = None
 
-    def create_node(self, oak_stage):
+    def create_nodes(self, pipeline):
         base_path = os.path.abspath(oak_models.__file__)
-        base_path = base_path[:-11]
+        base_path = base_path[:-11]     
         
         pd_blob_path = base_path + "blazepose_pose_detection" + ".blob"
         lm_blob_path = base_path + "blazepose_pose_landmark_full_body"  + ".blob"
 
-        oak_stage.pipeline.setOpenVINOVersion(version = dai.OpenVINO.Version.VERSION_2021_2)
+        pipeline.setOpenVINOVersion(version = dai.OpenVINO.Version.VERSION_2021_2)
 
-        pd_node = oak_stage.pipeline.createNeuralNetwork()
+        pd_node = pipeline.createNeuralNetwork()
         pd_node.setBlobPath(pd_blob_path)
         pd_node.input.setQueueSize(1)
         pd_node.input.setBlocking(False)
 
-        lm_node = oak_stage.pipeline.createNeuralNetwork()
+        lm_node = pipeline.createNeuralNetwork()
         lm_node.setBlobPath(lm_blob_path)
         lm_node.input.setQueueSize(1)
         lm_node.input.setBlocking(False)
 
-        if(oak_stage.preview_size["rgb"] != self.input_size):
-            img_manip = oak_stage.pipeline.createImageManip()
-            img_manip.setResize(self.input_size[0], self.input_size[1])
-            oak_stage.cam["rgb"].preview.link(img_manip.inputImage)
-            img_manip.out.link(pd_node.input)
-        else:
-            oak_stage.cam["rgb"].preview.link(pd_node.input)
+        nodes = {"blazepose_pd": pd_node,
+                    "blazepose_lm": lm_node}
         
+        return nodes
 
-        xLink_in = oak_stage.pipeline.createXLinkIn()
+    def link(self, pipeline, nodes, rgb_out, left_out, right_out, depth_out):
+        rgb_out.link(nodes["blazepose_pd"].input)
+
+        xLink_in = pipeline.createXLinkIn()
         xLink_in.setStreamName("blazepose_lm_in")
-        xLink_in.out.link(lm_node.input)
-        oak_stage.input_link['blazepose_lm_in'] = xLink_in
+        xLink_in.out.link(nodes["blazepose_lm"].input)
         
-        self.nodes = {"blazepose_pd": pd_node,
-                        "blazepose_lm": lm_node}
-        
-        return self.nodes
+        pd_out = pipeline.createXLinkOut()
+        pd_out.setStreamName("blazepose_pd")
+        nodes["blazepose_pd"].out.link(pd_out.input)
 
-    def decode_result(self, oak_stage):
+        lm_out = pipeline.createXLinkOut()
+        lm_out.setStreamName("blazepose_lm")
+        nodes["blazepose_lm"].out.link(lm_out.input)
+
+        links = {"blazepose_lm_in": xLink_in,
+                "blazepose_pd" : pd_out,
+                "blazepose_lm" : lm_out}
         
-        video_frame = oak_stage.cam_output["rgb"]
+        return links
+
+    def create_output_queues(self, device):
+        pd_out = device.getOutputQueue("blazepose_pd", maxSize=1, blocking=False)
+        lm_out = device.getOutputQueue("blazepose_lm", maxSize=1, blocking=False)
+
+        return {"blazepose_pd" : pd_out, "blazepose_lm" : lm_out}
+
+    def create_input_queues(self, device):
+        lm_in = device.getInputQueue("blazepose_lm_in", maxSize=1, blocking=False)
+
+        return {"blazepose_lm_in": lm_in}
+
+    def process(self, context):
+
+        video_frame = context["frame"][OAK_Stage.COLOR]
 
         if video_frame is None:
             if self.videoframe is None:
@@ -115,73 +133,57 @@ class OAK_Blazepose(OAK_NN_Model):
             else:
                 video_frame = self.videoframe
         else:
-            video_frame = video_frame.getCvFrame() 
             self.videoframe = video_frame
-        
+
         
         self.blazepose.frame_size = video_frame.shape[0]
+        pd_inference = context["output_queues"]["blazepose_pd"].tryGet()
 
-        pd_inference = oak_stage.nn_output["blazepose_pd"]
-
-        
 
         if pd_inference is not None:
             self.blazepose.pd_postprocess(pd_inference)
-            self.pd_inference = pd_inference
-        elif self.pd_inference is None:
+        else: 
             return
-
-
-        lm_in = oak_stage._oak_input_queue['blazepose_lm_in']
 
         self.blazepose.nb_active_regions = 0
 
+        bodyposes = []
+        bodyposes_3d = []
 
         for i,r in enumerate(self.blazepose.regions):
             frame_nn = mpu.warp_rect_img(r.rect_points, video_frame, self.blazepose.lm_input_length, self.blazepose.lm_input_length)
             nn_data = dai.NNData()   
             nn_data.setLayer("input_1", to_planar(frame_nn, (self.blazepose.lm_input_length, self.blazepose.lm_input_length)))
-            lm_in.send(nn_data)
+            context["input_queues"]['blazepose_lm_in'].send(nn_data)
 
-            lm_inference = oak_stage.nn_output["blazepose_lm"]
+            lm_inference = context["output_queues"]['blazepose_lm'].get()
         
-            if lm_inference is not None:
-                self.blazepose.lm_postprocess(r, lm_inference)
+            self.blazepose.lm_postprocess(r, lm_inference)
 
-                try:
-                    r.landmarks_padded[:,:2]
-                except:
+            if r.lm_score < self.blazepose.lm_score_threshold:
+                continue
+
+            bp = BodyPose()
+            bp_3d = None
+
+            points = r.landmarks_abs
+            bp_3d = BodyPose()
+
+            for i,x_y in enumerate(r.landmarks_padded[:,:2]):
+
+                name = OAK_Blazepose.kp_name[i]
+
+                if name is None:
                     continue
+                
+                bp.add_keypoint(name,x_y[0],x_y[1])
+                bp_3d.add_keypoint(name,points[i][0],points[i][1],points[i][2])
 
-                frame = self.videoframe.copy()
+            bodyposes.append(bp)
+            bodyposes_3d.append(bp_3d)
 
-                bp = BodyPose()
-                bp_3d = None
-
-
-                points = None
-                try:
-                    points = r.landmarks_abs
-                    bp_3d = BodyPose()
-                except:
-                    pass
-
-                for i,x_y in enumerate(r.landmarks_padded[:,:2]):
-
-                    name = OAK_Blazepose.kp_name[i]
-
-                    if name is None:
-                        continue
-                    
-                    bp.add_keypoint(name,x_y[0],x_y[1])
-                    if points is not None:
-                        bp_3d.add_keypoint(name,points[i][0],points[i][1],points[i][2])
-
-                oak_stage._setOutput(bp, "bodypose")
-
-                if points is not None:
-                    oak_stage._setOutput(bp_3d, "bodypose_3d")
-
+        self._setOutput(bodyposes, "bodypose_list")
+        self._setOutput(bodyposes_3d, "bodypose3d_list")
             
 
         

@@ -93,13 +93,16 @@ class OAK_Stage(Stage):
         for substage in self.substages:
             for cam in OAK_Stage.CAMERAS_TYPES:
                 for i in range(2):
-                    if self.preview_size[cam][i] < substage.preview_size[cam][i]:
-                        self.preview_size[cam][i] = substage.preview_size[cam][i]
+                    if self.preview_size[cam][i] < substage.input_size[cam][i]:
+                        self.preview_size[cam][i] = substage.input_size[cam][i]
                 
             if substage.uses_depth:
                 self.depth = True
+            if substage.color_out:
+                self._configs["color_out"] = True
 
-        needs_manip = {}
+        if substage.color_out:
+            self.addOutput("color", Image)
 
         #Instantiate cameras
 
@@ -135,7 +138,7 @@ class OAK_Stage(Stage):
             nodes = substage.create_nodes(pipeline)
 
             for key in nodes:
-                if key in self.nodes[key]:
+                if key in self.nodes:
                     raise RuntimeError("Already exists a node with name "+str(key)+", substage "+type(substage).__name__+" creating another")
 
                 self.nodes[key] = nodes[key]
@@ -240,21 +243,23 @@ class OAK_Stage(Stage):
 
                 self.links["spartialData"] = xout
                 self.links["spatialConfig"] = xin
+        else:
+            self.data_out[OAK_Stage.DEPTH] = None
 
         if self._configs["color_out"]:
             xout = pipeline.createXLinkOut()
             xout.setStreamName(str(OAK_Stage.COLOR))
             self.nodes[OAK_Stage.COLOR].preview.link(xout.input)
-            self.links[OAK_Stage.COLOR]
+            self.links[OAK_Stage.COLOR] = xout
 
         for substage in self.substages:
-            links = substage.link(self.data_out[substage][OAK_Stage.COLOR], 
+            links = substage.link(pipeline, self.nodes, self.data_out[substage][OAK_Stage.COLOR], 
                             self.data_out[substage][OAK_Stage.LEFT], 
                             self.data_out[substage][OAK_Stage.RIGHT], 
                             self.data_out[OAK_Stage.DEPTH])
 
             for key in links:
-                if key in self.links[key]:
+                if key in self.links:
                     raise RuntimeError("Already exists a stream with name "+str(key)+", substage "+type(substage).__name__+" creating another")
 
                 self.links[key] = links[key]
@@ -278,14 +283,14 @@ class OAK_Stage(Stage):
 
             if self._configs["depth_host"] == False:
                 self.oak_output_queue["spatialData"] = device.getOutputQueue("spartialData", maxSize=1, blocking=False)
-                self.oak_input_queue["spatialConfig"] = device.getInputQueue("spatialConfig", maxSize=1, blocking=False )
+                self.oak_input_queue["spatialConfig"] = device.getInputQueue("spatialConfig", maxSize=1, blocking=False)
 
                 self.links["spartialData"] = xout
                 self.links["spatialConfig"] = xin
 
         for substage in self.substages:
             out_queues = substage.create_output_queues(device)
-            in_queue = substage.create_input_queues(device)
+            in_queues = substage.create_input_queues(device)
 
             for key in out_queues:
                 if key in self.oak_output_queue:
@@ -293,11 +298,10 @@ class OAK_Stage(Stage):
 
                 self.oak_output_queue[key] = out_queues[key]
             
-            for key in in_queue:
-                if key in self.oak_output_queue:
+            for key in in_queues:
+                if key in self.oak_input_queue:
                     raise RuntimeError("Already exists a input queue with name "+str(key)+", substage "+type(substage).__name__+" creating another")
-
-                self.oak_input_queue[key] = out_queues[key]
+                self.oak_input_queue[key] = in_queues[key]
 
         #Calibration read
         self.camera_intrinsics = {}
@@ -325,35 +329,41 @@ class OAK_Stage(Stage):
         self.set_context("camera_calibration_size", self.camera_calibration_size)
         
         self.data = {}
+        self.frame = {}
 
         if OAK_Stage.COLOR in self.oak_output_queue:
             self.data[OAK_Stage.COLOR] = None
+            self.frame[OAK_Stage.COLOR] = None
         if OAK_Stage.DEPTH in self.oak_output_queue: 
             self.data[OAK_Stage.DEPTH] = None
-            self.data["depth_frame"] = None
+            self.frame[OAK_Stage.DEPTH] = None
         
         self.set_context("data", self.data)
+        self.set_context("frame", self.frame)
 
     def process(self, context={}):
         '''!
             Process the data received from the OAK.
         '''
 
-        for cam in OAK_Stage.CAMERAS_TYPE:
+        for cam in OAK_Stage.CAMERAS_TYPES:
             if cam in self.oak_output_queue:
                 cam_data = self.oak_output_queue[cam].tryGet()
 
                 if cam_data is not None:
                     self.data[cam] = cam_data
                     img = cam_data.getCvFrame()
-                    img = Image(self._configs["frame_id"], img)
+                    self.frame[cam] = img
 
+                    img = Image(self._configs["frame_id"], img)
                     if cam is OAK_Stage.COLOR:
-                        self._setOutput("color", cam)
+                        self._setOutput(img, "color")
                     elif cam is OAK_Stage.LEFT:
-                        self._setOutput("left", cam)
+                        self._setOutput(img, "left")
                     elif cam is OAK_Stage.RIGHT:
-                        self._setOutput("right", cam)
+                        self._setOutput(img, "right")
+                    
+                    
 
         if OAK_Stage.DEPTH in self.oak_output_queue:
             depth_data = self.oak_output_queue[OAK_Stage.DEPTH].tryGet()
@@ -373,7 +383,7 @@ class OAK_Stage(Stage):
 
                     depth_frame = depth_frame.astype(np.uint16)
 
-                self.data["depth_frame"] = depth_frame
+                self.frame[OAK_Stage.DEPTH] = depth_frame
 
                 depth_map = Depth_Map(self._configs["frame_id"], depth_frame.astype(np.float64)/1000.0)
                 depth_img = Image(self._configs["frame_id"], (depth_frame/np.max(depth_frame))*256)
@@ -384,7 +394,8 @@ class OAK_Stage(Stage):
                 self._setOutput(depth_map,"depth_map")
                 self._setOutput(depth_img,"depth_img")
 
-                self.set_context("data", self.data)
+        self.set_context("data", self.data)
+        self.set_context("frame", self.frame)
 
     def get3DPosition(self, point_x,point_y, size):
         '''!

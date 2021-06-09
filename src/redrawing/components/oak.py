@@ -315,75 +315,76 @@ class OAK_Stage(Stage):
         self.camera_calibration_size[OAK_Stage.COLOR] = np.array([width, height])
         self.camera_calibration_size[OAK_Stage.LEFT] = np.array([1280, 720])
         self.camera_calibration_size[OAK_Stage.RIGHT] = np.array([1280, 720])
-    
+
+        # Set data and context values
+
+        self.set_context("frame_id", self._configs["frame_id"])
+        self.set_context("output_queues", self.oak_output_queue)
+        self.set_context("input_queues", self.oak_input_queue)
+        self.set_context("camera_intrinsics", self.camera_intrinsics)
+        self.set_context("camera_calibration_size", self.camera_calibration_size)
+        
+        self.data = {}
+
+        if OAK_Stage.COLOR in self.oak_output_queue:
+            self.data[OAK_Stage.COLOR] = None
+        if OAK_Stage.DEPTH in self.oak_output_queue: 
+            self.data[OAK_Stage.DEPTH] = None
+            self.data["depth_frame"] = None
+        
+        self.set_context("data", self.data)
 
     def process(self, context={}):
         '''!
             Process the data received from the OAK.
-
-            Decodes the neural results and pass with the camera images
-            to the outputs channels
         '''
-        try:
-            self.nn_output = {}
-            self.cam_output = {}
 
-            for nn in self._nn_queue:
-                
-                output = self._nn_queue[nn].tryGet()
-            
-                self.nn_output[nn] = output
-            
-            
+        for cam in OAK_Stage.CAMERAS_TYPE:
+            if cam in self.oak_output_queue:
+                cam_data = self.oak_output_queue[cam].tryGet()
 
-            for cam in self._cam_queue:
-                self.cam_output[cam] = self._cam_queue[cam].tryGet()
-
-                if self.cam_output[cam] is not None:
-                    img = self.cam_output[cam].getCvFrame()
+                if cam_data is not None:
+                    self.data[cam] = cam_data
+                    img = cam_data.getCvFrame()
                     img = Image(self._configs["frame_id"], img)
 
-                    self._setOutput(img, cam)
+                    if cam is OAK_Stage.COLOR:
+                        self._setOutput("color", cam)
+                    elif cam is OAK_Stage.LEFT:
+                        self._setOutput("left", cam)
+                    elif cam is OAK_Stage.RIGHT:
+                        self._setOutput("right", cam)
 
-            if self._configs["depth"]:
-                depth_output = self._depth_queue.tryGet()
+        if OAK_Stage.DEPTH in self.oak_output_queue:
+            depth_data = self.oak_output_queue[OAK_Stage.DEPTH].tryGet()
 
-                if depth_output is not None:
-                    self._depth_output = depth_output
+            if depth_data is not None:
+                self.data[OAK_Stage.DEPTH] = depth_data
 
-                    depth = depth_output.getCvFrame()
+                depth_frame = depth_data.getCvFrame()
 
-                    if  self._configs["depth_filtering"] == "bilateral":
-                        depth = depth.astype(np.float32)
-                        depth = cv.bilateralFilter(depth, self.d, self.sigma, self.sigma)
-                        depth = depth.astype(np.uint16)
-                    elif self._configs["depth_filtering"] == "median":
-                        depth = depth.astype(np.float32)
-                        depth = cv.medianBlur(depth, 5)
+                if  self._configs["depth_filtering"] == "bilateral":
+                    depth_frame = depth_frame.astype(np.float32)
+                    depth_frame = cv.bilateralFilter(depth_frame, self.d, self.sigma, self.sigma)
+                    depth_frame = depth_frame.astype(np.uint16)
+                elif self._configs["depth_filtering"] == "median":
+                    depth_frame = depth_frame.astype(np.float32)
+                    depth_frame = cv.medianBlur(depth_frame, 5)
 
-                        depth = depth.astype(np.uint16)
+                    depth_frame = depth_frame.astype(np.uint16)
 
-                    
+                self.data["depth_frame"] = depth_frame
 
-                    depth_map = Depth_Map(self._configs["frame_id"], depth.astype(np.float64)/1000.0)
-                    depth_img = Image(self._configs["frame_id"], (depth/np.max(depth))*256)
+                depth_map = Depth_Map(self._configs["frame_id"], depth_frame.astype(np.float64)/1000.0)
+                depth_img = Image(self._configs["frame_id"], (depth_frame/np.max(depth_frame))*256)
 
-                    self._depth_frame = depth
-                    self._depth_map = depth_map
+                self._depth_frame = depth_frame
+                self._depth_map = depth_map
 
-                    self._setOutput(depth_map,"depth_map")
-                    self._setOutput(depth_img,"depth_img")
+                self._setOutput(depth_map,"depth_map")
+                self._setOutput(depth_img,"depth_img")
 
-
-            for nn in self._nn_list:
-                self._nn_list[nn].decode_result(self)
-        except KeyboardInterrupt as ki:
-            raise ki
-        except Exception as err:
-            if self._configs["force_reconnection"]:
-                self.setup()
-            else:
-                raise err
+                self.set_context("data", self.data)
 
     def get3DPosition(self, point_x,point_y, size):
         '''!

@@ -170,6 +170,9 @@ class Pipeline(ABC):
 
     def __init__(self):
         self.stages = []
+        self.substages = []
+
+        self.substages_configs = {}
     
     def insert_stage(self, stage):
         '''!
@@ -183,8 +186,12 @@ class Pipeline(ABC):
 
         if not isinstance(stage, Stage):
             raise Exception("Stages must be of Stage class")
+        
+        if stage in self.substages:
+            return
 
         self.stages.append(stage)
+        self.substages_configs[stage] = []
 
     @abstractmethod
     def create_queue(self, max_size):
@@ -211,8 +218,21 @@ class Pipeline(ABC):
 
         stage_out._setOutputQueue(queue, id_out)
         
-        ...
+        
 
+    def set_substage(self, superstage, substage, run_before=False):
+        if substage not in self.substages:
+            self.substages.append(substage)
+
+        if substage in self.stages:
+            self.stages.remove(substage)
+        
+        if not superstage in self.substages_configs:
+            self.substages_configs[superstage] = []
+        
+        self.substages_configs[superstage].append({"substage":substage, "run_before": run_before})
+
+        superstage.substages.append(substage)
 
     @abstractmethod
     def run(self):
@@ -242,6 +262,9 @@ class SingleProcess_Pipeline(Pipeline):
         '''
 
         for stage in self.stages:
+            for substage in self.substages_configs[stage]:
+                substage["substage"].setup()
+
             stage.setup()
 
         self.started = True 
@@ -266,7 +289,15 @@ class SingleProcess_Pipeline(Pipeline):
             self.start()
 
         for stage in self.stages:
-                stage.run()
+            for substage in self.substages_configs[stage]:
+                if substage["run_before"] == True:
+                    substage["substage"].run(stage._context)
+
+            stage.run()
+
+            for substage in self.substages_configs[stage]:
+                if substage["run_before"] == False:
+                    substage["substage"].run(stage._context)
 
 
     def create_queue(self, max_size):
@@ -292,10 +323,21 @@ class MultiProcess_Pipeline(Pipeline):
                 @param stage - stage to be runned
         '''
         
+        for substage in self.substages_configs[stage]:
+             substage["substage"].setup()
+
         stage.setup()
         
         while True:
+            for substage in self.substages_configs[stage]:
+                if substage["run_before"] == True:
+                    substage["substage"].run(stage._context)
+
             stage.run()
+
+            for substage in self.substages_configs[stage]:
+                if substage["run_before"] == False:
+                    substage["substage"].run(stage._context)
 
     def run(self):
         '''!

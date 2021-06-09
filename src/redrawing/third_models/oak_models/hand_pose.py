@@ -1,34 +1,32 @@
 from math import exp
 import os
 import time
+
 import depthai as dai
 import numpy as np
 import cv2
+
 from redrawing.data_interfaces.gesture import Gesture
-from redrawing.third_models.oak_models.HandTracker import HandTracker, to_planar
 from redrawing.data_interfaces.bodypose import BodyPose
 from redrawing.data_interfaces.object_detection import ObjectDetection
-from redrawing.components.oak_constants import *
-from redrawing.components.oak_model import OAK_NN_Model
+
+from redrawing.components.oak import OAK_Stage
+from redrawing.components.oak_substage import OAK_Substage
+
 import redrawing.third_models.oak_models as oak_models
-from redrawing.third_models.oak_models import hand_pose
+from redrawing.third_models.oak_models.HandTracker import HandTracker, to_planar
 import redrawing.third_models.oak_models.mediapipe_utils_hand as mpu
 
 
-   
-def now():
-    return time.perf_counter()
 
-class OAK_PalmDetector(OAK_NN_Model):
+class OAK_Handpose(OAK_Substage):
     '''!
         Handles the palm detector for OAK
     '''
 
     input_size = [128,128]
 
-    outputs = {"palm_detection_list": list,
-                "gesture_list" : list,
-                "hand_pose_list":list}
+    
 
     kp_name = ["WRIST_R",
                 "THUMB_CMC_R",
@@ -53,62 +51,80 @@ class OAK_PalmDetector(OAK_NN_Model):
                 "PINKY_TIP_R",
                 ]
 
-    def __init__(self):
-        self.node = None
+    configs_default = {}
+
+    def __init__(self, configs={}):
+        super().__init__(configs, name="handpose", color_input_size=[128,128], color_out=True)
+
+        self.addOutput("palm_detection_list", list)
+        self.addOutput("gesture_list", list)
+        self.addOutput("hand_pose_list", list)
+
+    def setup(self):
         self.HandTracker = HandTracker()
 
-        self.HandTracker.video_size = 128
         self.HandTracker.lm_input_length = 224
         self.HandTracker.use_gesture = True
-        self.input_size = OAK_PalmDetector.input_size
-        self.input_type = COLOR
+
         self.videoframe = None
 
-    def create_node(self, oak_stage):
+    def create_nodes(self, pipeline):
         base_path = os.path.abspath(oak_models.__file__)
         base_path = base_path[:-11]
-        blob_path = base_path + "palm_detection" +".blob"
 
-        oak_stage.pipeline.setOpenVINOVersion(version = dai.OpenVINO.Version.VERSION_2021_2)
+        pipeline.setOpenVINOVersion(version = dai.OpenVINO.Version.VERSION_2021_2)
         
-        nn_node = oak_stage.pipeline.createNeuralNetwork()
-        nn_node.setBlobPath(blob_path)
-        nn_node.setNumInferenceThreads(2)
-        nn_node.input.setQueueSize(1)
-        nn_node.input.setBlocking(False)
-
-        if(oak_stage.preview_size["rgb"] != self.input_size):
-            img_manip = oak_stage.pipeline.createImageManip()
-            img_manip.setResize(self.input_size[0], self.input_size[1])
-            oak_stage.cam["rgb"].preview.link(img_manip.inputImage)
-            img_manip.out.link(nn_node.input)
-        else:
-            oak_stage.cam["rgb"].preview.link(nn_node.input)
+        blob_path = base_path + "palm_detection" +".blob"
+        palm_node = pipeline.createNeuralNetwork()
+        palm_node.setBlobPath(blob_path)
+        palm_node.setNumInferenceThreads(2)
+        palm_node.input.setQueueSize(1)
+        palm_node.input.setBlocking(False)
 
         blob_path = base_path + "hand_landmark" +".blob"
-        lm_node = oak_stage.pipeline.createNeuralNetwork()
+        lm_node = pipeline.createNeuralNetwork()
         lm_node.setBlobPath(blob_path)
         lm_node.setNumInferenceThreads(1)
         lm_node.input.setQueueSize(1)
-        nn_node.input.setBlocking(False)
+        lm_node.input.setBlocking(False)
 
-        xLink_in = oak_stage.pipeline.createXLinkIn()
+        return {"palm_detector": palm_node, "hand_lm": lm_node}
+
+    def link(self, pipeline, nodes, rgb_out, left_out, right_out, depth_out):
+        rgb_out.link(nodes["palm_detector"].input)
+
+        xLink_in = pipeline.createXLinkIn()
         xLink_in.setStreamName("hand_lm_in")
-        xLink_in.out.link(lm_node.input)
-        oak_stage.input_link['hand_lm_in'] = xLink_in
+        xLink_in.out.link(nodes["hand_lm"].input)
+
+        pd_out = pipeline.createXLinkOut()
+        pd_out.setStreamName("palm_detector")
+        nodes["palm_detector"].out.link(pd_out.input)
+
+        lm_out = pipeline.createXLinkOut()
+        lm_out.setStreamName("hand_lm")
+        nodes["hand_lm"].out.link(lm_out.input)
+
+        links = {"hand_lm_in": xLink_in,
+                "palm_detector" : pd_out,
+                "hand_lm" : lm_out}
         
-        self.nodes = {"palm_detector": nn_node,
-                        "hand_landmark": lm_node}
+        return links
+    
+    def create_output_queues(self, device):
+        pd_out = device.getOutputQueue("palm_detector", maxSize=1, blocking=False)
+        lm_out = device.getOutputQueue("hand_lm", maxSize=1, blocking=False)
 
-        return self.nodes
+        return {"palm_detector" : pd_out, "hand_lm" : lm_out}
 
-    def decode_result(self, oak_stage): 
-        '''!
+    def create_input_queues(self, device):
+        lm_in = device.getInputQueue("hand_lm_in", maxSize=1, blocking=False)
 
-            @todo Implementar saída assíncrona da OAK
-        '''
+        return {"hand_lm_in": lm_in}
 
-        video_frame = oak_stage.cam_output["rgb"]
+    def process(self, context):
+
+        video_frame = context["frame"][OAK_Stage.COLOR]
 
         if video_frame is None:
             if self.videoframe is None:
@@ -116,14 +132,14 @@ class OAK_PalmDetector(OAK_NN_Model):
             else:
                 video_frame = self.videoframe
         else:
-            video_frame = video_frame.getCvFrame() 
             self.videoframe = video_frame
 
-        nn_output = oak_stage.nn_output["palm_detector"]
+        self.HandTracker.video_size = video_frame.shape[0]
+        pd_inference = context["output_queues"]["palm_detector"].tryGet()
 
-        if nn_output is not None:
+        if pd_inference is not None:
 
-            self.HandTracker.pd_postprocess(nn_output)
+            self.HandTracker.pd_postprocess(pd_inference)
 
             results_palm = []
 
@@ -135,59 +151,41 @@ class OAK_PalmDetector(OAK_NN_Model):
 
                 results_palm.append(result)
 
-            oak_stage._setOutput(results_palm, 'palm_detection_list')
-        
-        # Features/Keypoints -> Thiago
-        ##################################################
-        # Hand landmarks
+            self._setOutput(results_palm, 'palm_detection_list')
 
-        try:
-            self.HandTracker.regions
-        except:
-            return        
+            bodyposes = []
+            gestures = []
 
-        lm_in = oak_stage._oak_input_queue['hand_lm_in']
-
-        for i,r in enumerate(self.HandTracker.regions):
-            img_hand = mpu.warp_rect_img(r.rect_points, video_frame, self.HandTracker.lm_input_length, self.HandTracker.lm_input_length)
-            nn_data = dai.NNData()   
-            nn_data.setLayer("input_1", to_planar(img_hand, (self.HandTracker.lm_input_length, self.HandTracker.lm_input_length)))
-            lm_in.send(nn_data)
-        
-            inference = oak_stage._nn_queue["hand_landmark"].get()
-
-            if inference is not None:
+            for i,r in enumerate(self.HandTracker.regions):
+                img_hand = mpu.warp_rect_img(r.rect_points, video_frame, self.HandTracker.lm_input_length, self.HandTracker.lm_input_length)
+                nn_data = dai.NNData()   
+                nn_data.setLayer("input_1", to_planar(img_hand, (self.HandTracker.lm_input_length, self.HandTracker.lm_input_length)))
+                context["input_queues"]['hand_lm_in'].send(nn_data)
+            
+                inference = context["output_queues"]['hand_lm'].get()
 
                 self.HandTracker.lm_postprocess(r, inference)
+
+                if r.lm_score< self.HandTracker.lm_score_threshold:
+                    continue
+            
+                src = np.array([(0, 0), (1, 0), (1, 1)], dtype=np.float32)
+                dst = np.array([ (x, y) for x,y in r.rect_points[1:]], dtype=np.float32) # region.rect_points[0] is left bottom point !
+                mat = cv2.getAffineTransform(src, dst)
+                lm_xy = np.expand_dims(np.array([(l[0], l[1]) for l in r.landmarks]), axis=0)
+                lm_xy = np.squeeze(cv2.transform(lm_xy, mat)).astype(np.int)
+
+                bp = BodyPose(frame_id=context["frame_id"], pixel_space=True)
+                for i in range(lm_xy.shape[0]):
+                    name = OAK_Handpose.kp_name[i]
+                    bp.add_keypoint(name,lm_xy[i][0],lm_xy[i][1])
+
+                bodyposes.append(bp)
+
+                gesture = Gesture()
+                gesture._gesture=r.gesture
+                gestures.append(gesture)
+                        
+            self._setOutput(bodyposes, "hand_pose_list")
+            self._setOutput(gestures, 'gesture_list')
         
-        bodyposes = []
-
-        try:
-            self.HandTracker.regions[0].landmarks
-        except:
-            return
-        
-        for region in self.HandTracker.regions:
-            src = np.array([(0, 0), (1, 0), (1, 1)], dtype=np.float32)
-            dst = np.array([ (x, y) for x,y in region.rect_points[1:]], dtype=np.float32) # region.rect_points[0] is left bottom point !
-            mat = cv2.getAffineTransform(src, dst)
-            lm_xy = np.expand_dims(np.array([(l[0], l[1]) for l in region.landmarks]), axis=0)
-            lm_xy = np.squeeze(cv2.transform(lm_xy, mat)).astype(np.int)
-
-            bp = BodyPose()
-            for i in range(lm_xy.shape[0]):
-                name = OAK_PalmDetector.kp_name[i]
-                bp.add_keypoint(name,lm_xy[i][0],lm_xy[i][1])
-
-            bodyposes.append(bp)
-                
-        oak_stage._setOutput(bodyposes, "hand_pose_list")
-        ##################################################
-
-        list_regions = []
-        for i,r in enumerate(self.HandTracker.regions):
-            gesture = Gesture()
-            gesture._gesture=r.gesture
-            list_regions.append(gesture)
-        
-        oak_stage._setOutput(list_regions, 'gesture_list')

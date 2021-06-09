@@ -33,7 +33,7 @@ class CameraReceiver(Stage):
         self._cap.set(cv.CAP_PROP_BUFFERSIZE, 0)
 
 
-    def process(self):
+    def process(self, context={}):
         
         ret, frame = self.cap.read()
 
@@ -60,7 +60,7 @@ class IMUReceiver(Stage):
         self._frame_id = self._configs["frame_id"]
 
     
-    def process(self):
+    def process(self, context={}):
         url = "http://"+self._ip+":"+self._port+"/sensors.json"
 
         time = None

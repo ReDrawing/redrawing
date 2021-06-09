@@ -5,58 +5,32 @@ import numpy as np
 from redrawing.components.pipeline import MultiProcess_Pipeline, SingleProcess_Pipeline
 from redrawing.components.oak import OAK_Stage
 from redrawing.communication.udp import UDP_Stage
-from redrawing.components.user import User_Manager_Stage
+
+from redrawing.third_models.oak_models.blazepose import OAK_Blazepose
+from redrawing.third_models.oak_models.hand_pose import OAK_Handpose
 
 
 if __name__ == '__main__':
 
-    oak_configs = { "depth":False,
-                    "nn_enable":{"bodypose":False, "hand_pose":True, "blazepose":True}, 
-                    "force_reconnection": False,
-                    "rgb_out": True, "rgb_resolution":[128,128],
-                    "force_reconnection": False}
+    oak_configs = {}
     oak_stage = OAK_Stage(oak_configs)
 
-    udp_stage = UDP_Stage()
+    blazepose = OAK_Blazepose()
+    handpose = OAK_Handpose()
 
+    udp_stage = UDP_Stage({"inputs_list": ["bodypose3d_list", "gesture_list"]})
 
     pipeline = SingleProcess_Pipeline()
 
-    
-
     pipeline.insert_stage(oak_stage)
     pipeline.insert_stage(udp_stage)
+    
+    pipeline.set_substage(oak_stage, blazepose)
+    pipeline.set_substage(oak_stage, handpose)
 
-    #pipeline.create_connection(oak_stage, "palm_detection_list", udp_stage, "send_msg_list", 1)
-    pipeline.create_connection(oak_stage, "bodypose_3d", udp_stage, "send_msg", 1)
-    pipeline.create_connection(oak_stage, "gesture_list", udp_stage, "send_msg_list", 1)
+    pipeline.create_connection(blazepose, "bodypose3d_list", udp_stage, "bodypose3d_list", 10)
+    pipeline.create_connection(handpose, "gesture_list", udp_stage, "gesture_list", 10)
 
-    last_gesture = None
+    pipeline.run()
 
-    while True:
-        pipeline.runOnce()
-
-        palm_detection = oak_stage.getOutput("palm_detection_list")
-        hand_pose = oak_stage.getOutput("hand_pose_list")
-        gestures = oak_stage.getOutput("gesture_list")
-        bodypose = oak_stage.getOutput("bodypose_3d")
-
-        '''print("Palm: ")
-        if palm_detection is not None:
-            for palm in palm_detection:
-                print(palm.bounding_box, end=" ")'''
-        
-
-        #print("Hand: ")
-
-        '''if hand_pose is not None:
-            for hand in hand_pose:
-                print(hand.WRIST_R, end=" ")'''
-
-        if gestures is not None:
-            for gesture in gestures:
-                print(gesture._gesture, end=" ")
-
-        if (gestures is not None) or (hand_pose is not None):
-            print()
             

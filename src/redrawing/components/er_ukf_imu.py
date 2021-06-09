@@ -68,7 +68,7 @@ class UKF_IMU(Stage):
         self.measurementHandler.setAccelRead(np.copy(self._accel))
         self.measurementHandler.setMagRead(self._mag)
 
-    def _kalman_process(self):
+    def _kalman_process(self, context={}):
         self.ukf.setMeasurement(self.measurementHandler.getErrorMeasurement())
         self.ukf.setEstimateOmega(self.gyroErrorCompensation.getCorrectedOmega())
         self.ukf.setEstimateTheta(self.attitudeComputation.getTheta())
@@ -83,7 +83,7 @@ class UKF_IMU(Stage):
             print("Filtro gerou excecao: "+str(e)+". Reiniciando filtro")
             self.ukf = ErUkfImu()
 
-    def _orientation_process(self):
+    def _orientation_process(self, context={}):
         omega = self.gyroErrorCompensation.getCorrectedOmega()
 
         self.attitudeComputation.setOmega(omega)
@@ -125,7 +125,7 @@ class UKF_IMU(Stage):
 
         pureAcceleration = self._accel - grav
 
-    def process(self):
+    def process(self, context={}):
         self._parse_inputs()
         self._pass_inputs()
         self._kalman_process()

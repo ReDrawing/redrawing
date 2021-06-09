@@ -1,45 +1,47 @@
 import cv2 as cv
 import numpy as np
-from numpy.core.numeric import NaN
 
-from redrawing.components.pipeline import SingleProcess_Pipeline
+from redrawing.components.pipeline import MultiProcess_Pipeline, SingleProcess_Pipeline
 from redrawing.components.oak import OAK_Stage
 from redrawing.communication.udp import UDP_Stage
-from redrawing.data_interfaces.bodypose import BodyPose
+from redrawing.components.pc_viewer import PCR_Viewer
+
+from redrawing.third_models.oak_models.human_pose import OAK_BodyPose
+
+show_pcr = True
+
+if __name__ == '__main__':
+
+    oak_configs = { "depth":True, "depth_close":True, "depth_filtering":"", "depth_point_mode": "min", 
+                    "depth_roi_size":25, "depth_host": True,
+                    "color_out": True, "color_size" : [640,400]}
+    oak_stage = OAK_Stage(oak_configs)
+
+    udp_stage = UDP_Stage()
+
+    bodypose = OAK_BodyPose({"3d":True})
+
+    pipeline = SingleProcess_Pipeline()
+
+    pipeline.insert_stage(oak_stage)
+    pipeline.insert_stage(udp_stage)
+    pipeline.set_substage(oak_stage, bodypose)
+
+    pipeline.create_connection(bodypose, "bodypose3d_list", udp_stage, "send_msg_list", 1)
+    
+    if show_pcr:
+        pcr = PCR_Viewer({"bodypose":True})
+        pipeline.insert_stage(pcr)
+
+        pipeline.create_connection(oak_stage, "depth_map", pcr, "depth", 1)
+        pipeline.create_connection(oak_stage, "color", pcr, "rgb", 1)
+        pipeline.create_connection(bodypose, "bodypose3d_list", pcr, "bodypose_list", 1)
+
+    pipeline.start()
 
 
-oak_configs = {"depth":True, "nn_enable":{"bodypose":True}}
-oak_stage = OAK_Stage(oak_configs)
+    if show_pcr:
+        pcr.calib_size = oak_stage.camera_calibration_size[OAK_Stage.COLOR]
+        pcr.camera_intrinsics = oak_stage.camera_intrinsics[OAK_Stage.COLOR]
 
-oak_stage.setup()
-
-
-while True:
-    oak_stage.run()
-    depth = oak_stage.getOutput("depth_img")
-
-    if depth is None:
-        continue
-
-    depth = depth.image
-
-    cv.imshow("depth",depth)
-
-    if cv.waitKey(1) == ord('q'):
-        break
-
-    bodyposes = oak_stage.getOutput("bodypose")
-
-    if bodyposes is None:
-        continue
-
-    for bd in bodyposes:
-        for name in BodyPose.keypoints_names:
-            kp = bd.get_keypoint(name)
-        
-            if kp[0] == np.inf:
-                continue
-
-            print(name, kp[0],kp[1],kp[2])
-
-    print("\n\n")
+    pipeline.run()

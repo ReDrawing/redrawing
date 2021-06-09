@@ -53,7 +53,7 @@ class PCR_Viewer(Stage):
 
         
 
-    def process(self):
+    def process(self, context={}):
         
         changed = False
 

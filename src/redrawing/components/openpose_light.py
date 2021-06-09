@@ -210,7 +210,7 @@ class OpenPose_Light(Stage):
 
         return bodyposes
 
-    def process(self):
+    def process(self, context={}):
         '''!
             Processes an image making the inference and returns the found BodyPoses
 

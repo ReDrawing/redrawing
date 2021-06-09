@@ -293,7 +293,7 @@ class OAK_Stage(Stage):
 
     
 
-    def process(self):
+    def process(self, context={}):
         '''!
             Process the data received from the OAK.
 

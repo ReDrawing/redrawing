@@ -30,6 +30,8 @@ class Stage(ABC):
         self.input_values = {}
         self.output_values = {}
 
+        self._context = {}
+
         new_configs = deepcopy(type(self).configs_default)
 
         for index in configs:
@@ -207,7 +209,12 @@ class Stage(ABC):
 
         return self._input_changed[id]
 
-    def run(self):
+    def set_context(self, key, value):
+        self._context[key] = value
+    def remove_context(self, key):
+        del self._context[key]
+
+    def run(self, context={}):
         '''!
             Runs a cicle of the Stage
 
@@ -216,12 +223,12 @@ class Stage(ABC):
 
         self._getInputs()
 
-        self.process()
+        self.process(context)
 
         self._sendOutputs()
 
     @abstractmethod
-    def process(self):
+    def process(self, context={}):
         '''!
             Do the processing of the Stage.
 

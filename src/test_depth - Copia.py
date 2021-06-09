@@ -6,7 +6,7 @@ from redrawing.components.oak import OAK_Stage
 from redrawing.communication.udp import UDP_Stage
 from redrawing.components.pc_viewer import PCR_Viewer
 
-show_pcr = False
+show_pcr = True
 
 if __name__ == '__main__':
 

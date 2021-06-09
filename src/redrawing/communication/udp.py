@@ -40,7 +40,7 @@ class UDP_Stage(Stage):
 
         self.sock.sendto(msg, (self.ip, self.port))
 
-    def process(self):
+    def process(self, context={}):
         '''!
             Gets the inputs and send to the address 
         '''

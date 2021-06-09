@@ -1,3 +1,4 @@
+from math import pi
 import os
 from abc import ABC, abstractmethod
 
@@ -62,8 +63,7 @@ class OAK_Stage(Stage):
         self._device = None
         self.pipeline = None
 
-        
-    
+
     def setup(self):
         '''!
             Configs the OAK stage.
@@ -85,242 +85,27 @@ class OAK_Stage(Stage):
         self.depth = self._configs["depth"]
         self.nodes = {}
 
-        #Set previews sizes and if needs depth
-
-        if self._configs["color_out"]:
-            self.preview_size[OAK_Stage.COLOR] = self._configs["color_size"]
-
-        for substage in self.substages:
-            for cam in OAK_Stage.CAMERAS_TYPES:
-                for i in range(2):
-                    if self.preview_size[cam][i] < substage.input_size[cam][i]:
-                        self.preview_size[cam][i] = substage.input_size[cam][i]
-                
-            if substage.uses_depth:
-                self.depth = True
-            if substage.color_out:
-                self._configs["color_out"] = True
-
-        if substage.color_out:
-            self.addOutput("color", Image)
-
-        #Instantiate cameras
-
-        if self.preview_size[OAK_Stage.COLOR] != [0,0]:
-            color_cam = pipeline.createColorCamera()
-            color_cam.setPreviewSize(self.preview_size[OAK_Stage.COLOR][0], self.preview_size[OAK_Stage.COLOR][1])
-            color_cam.setResolution(self._configs["color_resolution"])
-            color_cam.setInterleaved(False)
-            color_cam.setBoardSocket(dai.CameraBoardSocket.RGB)
-
-            if self.depth == True:
-                color_cam.initialControl.setManualFocus(130)
-
-            self.nodes[OAK_Stage.COLOR] = color_cam
-
-        if self.preview_size[OAK_Stage.LEFT] != [0,0] or self.depth:
-            left_cam = pipeline.createMonoCamera()
-            left_cam.setResolution(self._configs["mono_resolution"])
-            left_cam.setBoardSocket(dai.CameraBoardSocket.OAK_Stage.LEFT)
-
-            self.nodes[OAK_Stage.LEFT] = left_cam
-
-        if self.preview_size[OAK_Stage.RIGHT] != [0,0] or self.depth:
-            right_cam = pipeline.createMonoCamera()
-            right_cam.setResolution(self._configs["mono_resolution"])
-            right_cam.setBoardSocket(dai.CameraBoardSocket.OAK_Stage.RIGHT)
-
-            self.nodes[OAK_Stage.RIGHT] = right_cam
-
-        #Instantiate other nodes
-
-        for substage in self.substages:
-            nodes = substage.create_nodes(pipeline)
-
-            for key in nodes:
-                if key in self.nodes:
-                    raise RuntimeError("Already exists a node with name "+str(key)+", substage "+type(substage).__name__+" creating another")
-
-                self.nodes[key] = nodes[key]
+        self._set_preview_size()
+        self._create_cameras(pipeline)
+        self._create_substages_nodes(pipeline) 
 
         #Instantiate depth
-
         using_nn = False
-
         for node in self.nodes:
             if isinstance(self.nodes[node], dai.NeuralNetwork):
                 using_nn = True
                 break
 
-        if self.depth:
-
-            depth_node = pipeline.createStereoDepth()
-            depth_node.setLeftRightCheck(True)
-            depth_node.setConfidenceThreshold(200)
-            
-            if (not using_nn) and self._configs["depth_close"] == True: #See close -> Extended
-                depth_node.setExtendedDisparity(True)
-                depth_node.setSubpixel(False)
-            elif (not using_nn) and self._configs["depth_far"] == True: #See longer -> Subpixel
-                depth_node.setSubpixel(True)
-                depth_node.setExtendedDisparity(False)
-            else:
-                #depth_node.setDepthAlign(dai.CameraBoardSocket.RGB)
-                depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
-                depth_node.setSubpixel(False)
-                depth_node.setExtendedDisparity(False)
-
-            self.nodes[OAK_Stage.DEPTH] = depth_node
-
-            if self._configs["depth_host"] == False:
-                spatialLocationCalculator = pipeline.createSpatialLocationCalculator()
-                
-                topLeft = dai.Point2f(0.4, 0.4)
-                bottomRight = dai.Point2f(0.6, 0.6)
-                config = dai.SpatialLocationCalculatorConfigData()
-                config.depthThresholds.lowerThreshold = 100
-                config.depthThresholds.upperThreshold = 10000
-                config.roi = dai.Rect(topLeft, bottomRight)
-                spatialLocationCalculator.setWaitForConfigInput(False)
-                spatialLocationCalculator.initialConfig.addROI(config)
-
-                depth_node.disparity.link(spatialLocationCalculator.inputDepth)
-
-                self.nodes["spartial_location_calculator"] = spatialLocationCalculator
-
-        # Create manips
-        self.data_out = {}
-
-        for substage in self.substages:
-            self.data_out[substage] = [None,None,None]
-
-            for cam in OAK_Stage.CAMERAS_TYPES:
-                if substage.input_size[cam] == [0,0]:
-                    continue
-
-                if substage.input_size[cam] != self.preview_size[cam]:
-                    img_manip = pipeline.createImageManip()
-                    img_manip.setResize(substage.input_size[cam][0], substage.input_size[cam][1])
-
-                    if cam == OAK_Stage.COLOR:
-                        self.nodes[cam].preview.link(img_manip.inputImage)
-                    else:
-                        self.nodes[cam].out.link(img_manip.inputImage)
-
-                    self.nodes[substage.name+"_manip_"+str(cam)] = img_manip
-
-                    self.data_out[substage][cam] = img_manip.out
-                else:
-
-                    if cam == OAK_Stage.COLOR:
-                        self.data_out[substage][cam] = self.nodes[cam].preview
-                    else:
-                        self.data_out[substage][cam] = self.nodes[cam].out
-        # Link
-
-        self.links = {}
-
-        if self.depth:
-            self.nodes[OAK_Stage.LEFT].link(self.nodes[OAK_Stage.DEPTH].left)
-            self.nodes[OAK_Stage.RIGHT].link(self.nodes[OAK_Stage.DEPTH].right)
-
-            self.data_out[OAK_Stage.DEPTH] = self.nodes[OAK_Stage.DEPTH].depth
-
-
-            xout = pipeline.createXLinkOut()
-            xout.setStreamName()
-            self.depth_node.depth.link(xout.input)
-            self.links[OAK_Stage.DEPTH] = xout
-
-            if self._configs["depth_host"] == False:
-                xout = pipeline.createXLinkOut()
-                xout.setStreamName("spartialData")
-                self.nodes["spartial_location_calculator"].out.link(xout.input)
-
-                xin = pipeline.createXLinkIn()
-                xin.setStreamName("spatialConfig")
-                xin.out.link(self.spatialLocationCalculator.inputConfig)
-
-                self.links["spartialData"] = xout
-                self.links["spatialConfig"] = xin
-        else:
-            self.data_out[OAK_Stage.DEPTH] = None
-
-        if self._configs["color_out"]:
-            xout = pipeline.createXLinkOut()
-            xout.setStreamName(str(OAK_Stage.COLOR))
-            self.nodes[OAK_Stage.COLOR].preview.link(xout.input)
-            self.links[OAK_Stage.COLOR] = xout
-
-        for substage in self.substages:
-            links = substage.link(pipeline, self.nodes, self.data_out[substage][OAK_Stage.COLOR], 
-                            self.data_out[substage][OAK_Stage.LEFT], 
-                            self.data_out[substage][OAK_Stage.RIGHT], 
-                            self.data_out[OAK_Stage.DEPTH])
-
-            for key in links:
-                if key in self.links:
-                    raise RuntimeError("Already exists a stream with name "+str(key)+", substage "+type(substage).__name__+" creating another")
-
-                self.links[key] = links[key]
-
-        #Start device
+        self._create_depth(pipeline, using_nn)
+        self._create_manips(pipeline)
+        self._link(pipeline)
 
         device = dai.Device(pipeline)
         self._device = device
         device.startPipeline()
 
-        #Queue creation
-
-        self.oak_input_queue = {}
-        self.oak_output_queue = {}
-        
-        if self._configs["color_out"]:
-            self.oak_output_queue[OAK_Stage.COLOR] = device.getOutputQueue(str(OAK_Stage.COLOR), maxSize=1, blocking=False)
-        
-        if self.depth:
-            self.oak_output_queue[OAK_Stage.DEPTH] = device.getOutputQueue(str(OAK_Stage.DEPTH), maxSize=1, blocking=False)
-
-            if self._configs["depth_host"] == False:
-                self.oak_output_queue["spatialData"] = device.getOutputQueue("spartialData", maxSize=1, blocking=False)
-                self.oak_input_queue["spatialConfig"] = device.getInputQueue("spatialConfig", maxSize=1, blocking=False)
-
-                self.links["spartialData"] = xout
-                self.links["spatialConfig"] = xin
-
-        for substage in self.substages:
-            out_queues = substage.create_output_queues(device)
-            in_queues = substage.create_input_queues(device)
-
-            for key in out_queues:
-                if key in self.oak_output_queue:
-                    raise RuntimeError("Already exists a output queue with name "+str(key)+", substage "+type(substage).__name__+" creating another")
-
-                self.oak_output_queue[key] = out_queues[key]
-            
-            for key in in_queues:
-                if key in self.oak_input_queue:
-                    raise RuntimeError("Already exists a input queue with name "+str(key)+", substage "+type(substage).__name__+" creating another")
-                self.oak_input_queue[key] = in_queues[key]
-
-        #Calibration read
-        self.camera_intrinsics = {}
-        self.camera_calibration_size = {}
-
-        calibObj = device.readCalibration()
-        M_color = np.array(calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[0])
-        width = calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[1]
-        height = calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[2]
-        M_left = np.array(calibObj.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, 1280, 720))
-        M_right = np.array(calibObj.getCameraIntrinsics(dai.CameraBoardSocket.RIGHT, 1280, 720))
-
-        self.camera_intrinsics[OAK_Stage.COLOR] = M_color
-        self.camera_intrinsics[OAK_Stage.LEFT] = M_left
-        self.camera_intrinsics[OAK_Stage.RIGHT] = M_right
-
-        self.camera_calibration_size[OAK_Stage.COLOR] = np.array([width, height])
-        self.camera_calibration_size[OAK_Stage.LEFT] = np.array([1280, 720])
-        self.camera_calibration_size[OAK_Stage.RIGHT] = np.array([1280, 720])
+        self._create_queues(device)
+        self._read_calibration(device)
 
         # Set data and context values
 
@@ -549,3 +334,218 @@ class OAK_Stage(Stage):
             self._device.close()
 
 
+    def _set_preview_size(self):
+        if self._configs["color_out"]:
+            self.preview_size[OAK_Stage.COLOR] = self._configs["color_size"]
+
+        for substage in self.substages:
+            for cam in OAK_Stage.CAMERAS_TYPES:
+                for i in range(2):
+                    if self.preview_size[cam][i] < substage.input_size[cam][i]:
+                        self.preview_size[cam][i] = substage.input_size[cam][i]
+                
+            if substage.uses_depth:
+                self.depth = True
+            if substage.color_out:
+                self._configs["color_out"] = True
+
+        if substage.color_out:
+            self.addOutput("color", Image)
+    
+    def _create_cameras(self, pipeline):
+        if self.preview_size[OAK_Stage.COLOR] != [0,0]:
+            color_cam = pipeline.createColorCamera()
+            color_cam.setPreviewSize(self.preview_size[OAK_Stage.COLOR][0], self.preview_size[OAK_Stage.COLOR][1])
+            color_cam.setResolution(self._configs["color_resolution"])
+            color_cam.setInterleaved(False)
+            color_cam.setBoardSocket(dai.CameraBoardSocket.RGB)
+
+            if self.depth == True:
+                color_cam.initialControl.setManualFocus(130)
+
+            self.nodes[OAK_Stage.COLOR] = color_cam
+
+        if self.preview_size[OAK_Stage.LEFT] != [0,0] or self.depth:
+            left_cam = pipeline.createMonoCamera()
+            left_cam.setResolution(self._configs["mono_resolution"])
+            left_cam.setBoardSocket(dai.CameraBoardSocket.OAK_Stage.LEFT)
+
+            self.nodes[OAK_Stage.LEFT] = left_cam
+
+        if self.preview_size[OAK_Stage.RIGHT] != [0,0] or self.depth:
+            right_cam = pipeline.createMonoCamera()
+            right_cam.setResolution(self._configs["mono_resolution"])
+            right_cam.setBoardSocket(dai.CameraBoardSocket.OAK_Stage.RIGHT)
+
+            self.nodes[OAK_Stage.RIGHT] = right_cam
+
+    def _create_substages_nodes(self, pipeline):
+        for substage in self.substages:
+            nodes = substage.create_nodes(pipeline)
+
+            for key in nodes:
+                if key in self.nodes:
+                    raise RuntimeError("Already exists a node with name "+str(key)+", substage "+type(substage).__name__+" creating another")
+
+                self.nodes[key] = nodes[key]
+
+    def _create_depth(self, pipeline, using_nn):
+        if self.depth:
+
+            depth_node = pipeline.createStereoDepth()
+            depth_node.setLeftRightCheck(True)
+            depth_node.setConfidenceThreshold(200)
+            
+            if (not using_nn) and self._configs["depth_close"] == True: #See close -> Extended
+                depth_node.setExtendedDisparity(True)
+                depth_node.setSubpixel(False)
+            elif (not using_nn) and self._configs["depth_far"] == True: #See longer -> Subpixel
+                depth_node.setSubpixel(True)
+                depth_node.setExtendedDisparity(False)
+            else:
+                #depth_node.setDepthAlign(dai.CameraBoardSocket.RGB)
+                depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
+                depth_node.setSubpixel(False)
+                depth_node.setExtendedDisparity(False)
+
+            self.nodes[OAK_Stage.DEPTH] = depth_node
+
+            if self._configs["depth_host"] == False:
+                spatialLocationCalculator = pipeline.createSpatialLocationCalculator()
+                
+                topLeft = dai.Point2f(0.4, 0.4)
+                bottomRight = dai.Point2f(0.6, 0.6)
+                config = dai.SpatialLocationCalculatorConfigData()
+                config.depthThresholds.lowerThreshold = 100
+                config.depthThresholds.upperThreshold = 10000
+                config.roi = dai.Rect(topLeft, bottomRight)
+                spatialLocationCalculator.setWaitForConfigInput(False)
+                spatialLocationCalculator.initialConfig.addROI(config)
+
+                depth_node.disparity.link(spatialLocationCalculator.inputDepth)
+
+                self.nodes["spartial_location_calculator"] = spatialLocationCalculator
+
+    def _create_manips(self, pipeline):
+        self.data_out = {}
+
+        for substage in self.substages:
+            self.data_out[substage] = [None,None,None]
+
+            for cam in OAK_Stage.CAMERAS_TYPES:
+                if substage.input_size[cam] == [0,0]:
+                    continue
+
+                if substage.input_size[cam] != self.preview_size[cam]:
+                    img_manip = pipeline.createImageManip()
+                    img_manip.setResize(substage.input_size[cam][0], substage.input_size[cam][1])
+
+                    if cam == OAK_Stage.COLOR:
+                        self.nodes[cam].preview.link(img_manip.inputImage)
+                    else:
+                        self.nodes[cam].out.link(img_manip.inputImage)
+
+                    self.nodes[substage.name+"_manip_"+str(cam)] = img_manip
+
+                    self.data_out[substage][cam] = img_manip.out
+                else:
+
+                    if cam == OAK_Stage.COLOR:
+                        self.data_out[substage][cam] = self.nodes[cam].preview
+                    else:
+                        self.data_out[substage][cam] = self.nodes[cam].out
+
+    def _link(self, pipeline):
+        self.links = {}
+
+        if self.depth:
+            self.nodes[OAK_Stage.LEFT].link(self.nodes[OAK_Stage.DEPTH].left)
+            self.nodes[OAK_Stage.RIGHT].link(self.nodes[OAK_Stage.DEPTH].right)
+
+            self.data_out[OAK_Stage.DEPTH] = self.nodes[OAK_Stage.DEPTH].depth
+
+
+            xout = pipeline.createXLinkOut()
+            xout.setStreamName()
+            self.depth_node.depth.link(xout.input)
+            self.links[OAK_Stage.DEPTH] = xout
+
+            if self._configs["depth_host"] == False:
+                xout = pipeline.createXLinkOut()
+                xout.setStreamName("spartialData")
+                self.nodes["spartial_location_calculator"].out.link(xout.input)
+
+                xin = pipeline.createXLinkIn()
+                xin.setStreamName("spatialConfig")
+                xin.out.link(self.spatialLocationCalculator.inputConfig)
+
+                self.links["spartialData"] = xout
+                self.links["spatialConfig"] = xin
+        else:
+            self.data_out[OAK_Stage.DEPTH] = None
+
+        if self._configs["color_out"]:
+            xout = pipeline.createXLinkOut()
+            xout.setStreamName(str(OAK_Stage.COLOR))
+            self.nodes[OAK_Stage.COLOR].preview.link(xout.input)
+            self.links[OAK_Stage.COLOR] = xout
+
+        for substage in self.substages:
+            links = substage.link(pipeline, self.nodes, self.data_out[substage][OAK_Stage.COLOR], 
+                            self.data_out[substage][OAK_Stage.LEFT], 
+                            self.data_out[substage][OAK_Stage.RIGHT], 
+                            self.data_out[OAK_Stage.DEPTH])
+
+            for key in links:
+                if key in self.links:
+                    raise RuntimeError("Already exists a stream with name "+str(key)+", substage "+type(substage).__name__+" creating another")
+
+                self.links[key] = links[key]
+
+    def _create_queues(self, device):
+        self.oak_input_queue = {}
+        self.oak_output_queue = {}
+        
+        if self._configs["color_out"]:
+            self.oak_output_queue[OAK_Stage.COLOR] = device.getOutputQueue(str(OAK_Stage.COLOR), maxSize=1, blocking=False)
+        
+        if self.depth:
+            self.oak_output_queue[OAK_Stage.DEPTH] = device.getOutputQueue(str(OAK_Stage.DEPTH), maxSize=1, blocking=False)
+
+            if self._configs["depth_host"] == False:
+                self.oak_output_queue["spatialData"] = device.getOutputQueue("spartialData", maxSize=1, blocking=False)
+                self.oak_input_queue["spatialConfig"] = device.getInputQueue("spatialConfig", maxSize=1, blocking=False)
+
+        for substage in self.substages:
+            out_queues = substage.create_output_queues(device)
+            in_queues = substage.create_input_queues(device)
+
+            for key in out_queues:
+                if key in self.oak_output_queue:
+                    raise RuntimeError("Already exists a output queue with name "+str(key)+", substage "+type(substage).__name__+" creating another")
+
+                self.oak_output_queue[key] = out_queues[key]
+            
+            for key in in_queues:
+                if key in self.oak_input_queue:
+                    raise RuntimeError("Already exists a input queue with name "+str(key)+", substage "+type(substage).__name__+" creating another")
+                self.oak_input_queue[key] = in_queues[key]
+
+    def _read_calibration(self, device):
+        self.camera_intrinsics = {}
+        self.camera_calibration_size = {}
+
+        calibObj = device.readCalibration()
+        M_color = np.array(calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[0])
+        width = calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[1]
+        height = calibObj.getDefaultIntrinsics(dai.CameraBoardSocket.RGB)[2]
+        M_left = np.array(calibObj.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, 1280, 720))
+        M_right = np.array(calibObj.getCameraIntrinsics(dai.CameraBoardSocket.RIGHT, 1280, 720))
+
+        self.camera_intrinsics[OAK_Stage.COLOR] = M_color
+        self.camera_intrinsics[OAK_Stage.LEFT] = M_left
+        self.camera_intrinsics[OAK_Stage.RIGHT] = M_right
+
+        self.camera_calibration_size[OAK_Stage.COLOR] = np.array([width, height])
+        self.camera_calibration_size[OAK_Stage.LEFT] = np.array([1280, 720])
+        self.camera_calibration_size[OAK_Stage.RIGHT] = np.array([1280, 720])

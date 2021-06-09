@@ -1,45 +1,42 @@
 import cv2 as cv
 import numpy as np
-from numpy.core.numeric import NaN
 
-from redrawing.components.pipeline import SingleProcess_Pipeline
+from redrawing.components.pipeline import MultiProcess_Pipeline, SingleProcess_Pipeline
 from redrawing.components.oak import OAK_Stage
 from redrawing.communication.udp import UDP_Stage
-from redrawing.data_interfaces.bodypose import BodyPose
+from redrawing.components.pc_viewer import PCR_Viewer
 
+show_pcr = True
 
-oak_configs = {"depth":True, "nn_enable":{"bodypose":True}}
-oak_stage = OAK_Stage(oak_configs)
+if __name__ == '__main__':
 
-oak_stage.setup()
+    oak_configs = { "depth":True, "depth_close":True, "depth_filtering":"", "depth_point_mode": "min", 
+                    "depth_roi_size":25, "depth_host": True,
+                    "nn_enable":{"bodypose":True}, 
+                    "rgb_out": True, "rgb_resolution" : [640,400],
+                    "force_reconnection": False}
+    oak_stage = OAK_Stage(oak_configs)
 
+    udp_stage = UDP_Stage()
 
-while True:
-    oak_stage.run()
-    depth = oak_stage.getOutput("depth_img")
+    pipeline = MultiProcess_Pipeline()
 
-    if depth is None:
-        continue
+    
 
-    depth = depth.image
+    pipeline.insert_stage(oak_stage)
+    pipeline.insert_stage(udp_stage)
+    
+    pipeline.create_connection(oak_stage, "bodypose", udp_stage, "send_msg_list", 1)
+    
+    if show_pcr:
+        pcr = PCR_Viewer({"bodypose":True})
+        pcr.camera_intrinsics = OAK_Stage.color_intrinsic
+        pcr.calib_size = OAK_Stage.color_calib_size
+        pipeline.insert_stage(pcr)
 
-    cv.imshow("depth",depth)
+        pipeline.create_connection(oak_stage, "depth_map", pcr, "depth", 1)
+        pipeline.create_connection(oak_stage, "rgb", pcr, "rgb", 1)
+        pipeline.create_connection(oak_stage, "bodypose", pcr, "bodypose_list", 1)
 
-    if cv.waitKey(1) == ord('q'):
-        break
-
-    bodyposes = oak_stage.getOutput("bodypose")
-
-    if bodyposes is None:
-        continue
-
-    for bd in bodyposes:
-        for name in BodyPose.keypoints_names:
-            kp = bd.get_keypoint(name)
-        
-            if kp[0] == np.inf:
-                continue
-
-            print(name, kp[0],kp[1],kp[2])
-
-    print("\n\n")
+    #pipeline.start()
+    pipeline.run()

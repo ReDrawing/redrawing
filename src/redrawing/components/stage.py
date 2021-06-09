@@ -71,6 +71,7 @@ class Stage(ABC):
         self.input_dict[id] = inType
         self.input_values[id] = None
         self._input_changed[id] = False
+        self.input_queue[id] = None
 
     def addOutput(self, id, outType):
         '''!
@@ -84,6 +85,7 @@ class Stage(ABC):
         self.output_dict[id] = outType
         self.output_values[id] = None
         self._output_changed[id] = False
+        self.output_queue[id] = []
 
     def setInput(self, value, id):
         '''!
@@ -153,7 +155,7 @@ class Stage(ABC):
                 @param id - ID of the communication channel
         '''
 
-        self.output_queue[id] = queue
+        self.output_queue[id].append(queue)
     
     def _setInputQueue(self, queue, id):
         '''!
@@ -165,6 +167,12 @@ class Stage(ABC):
         '''
 
         self.input_queue[id] = queue
+    
+    def has_input_queue(self, id):
+        if self.input_queue[id] is None:
+            return False
+        
+        return True
 
     def _sendOutputs(self):
         '''!
@@ -174,7 +182,8 @@ class Stage(ABC):
         for id in self.output_queue:
             if self._output_changed[id] == True:
                 self._output_changed[id] = False
-                self.output_queue[id].insert(self.output_values[id])
+                for queue in self.output_queue[id]:
+                    queue.insert(self.output_values[id])
         
     def _getInputs(self):
         '''!
@@ -182,6 +191,8 @@ class Stage(ABC):
         '''
 
         for id in self.input_queue:
+            if self.input_queue[id] is None:
+                continue
             if not self.input_queue[id].empty():
                 self.setInput(self.input_queue[id].get(), id)
 

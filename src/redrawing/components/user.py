@@ -1,5 +1,7 @@
 import time
 
+import pykalman
+
 from redrawing.components.stage import Stage
 from redrawing.data_interfaces.bodypose import *
 from redrawing.data_interfaces.frame import Frame_TF
@@ -14,7 +16,8 @@ class User_Manager_Stage(Stage):
 
     configs_default = {"delete_time" : 300,
                         "threshold" : 1000,
-                        "change_frame" : False}
+                        "change_frame" : False,
+                        "estimate_missing": False}
 
     def __init__(self, configs={}):
         super().__init__(configs=configs)
@@ -104,6 +107,35 @@ class User_Manager_Stage(Stage):
                     accel = BodyVel.from_bodyposes(self._vel[actual_id], self._last_vel[actual_id])
                     self._accel[actual_id] = accel
 
+    #Completes the key name keypoint if the average of the values keypoints
+    mean_complete = {"SPINE_SHOULDER"    :   ["SHOULDER_R", "SHOULDER_L"],
+                    }
+
+    def _complete(self, bp):
+        for missing_name in User_Manager_Stage.mean_complete:
+            missing_kp = bp.get_keypoint(missing_name)
+            
+            if np.isinf(missing_kp[0]):
+                kps = []
+
+                have_all = True
+
+                for name in User_Manager_Stage.mean_complete[missing_name]:
+                    kps.append(bp.get_keypoint(name))
+
+                    if np.isinf(kps[-1][0]):
+                        have_all = False
+                        break
+
+                if not have_all:
+                    continue
+                    
+                missing_kp = np.mean(kps,0)
+
+
+                bp.add_keypoint_array(missing_name, missing_kp)
+
+
     def process(self):
         '''!
             Handle the user data incoming
@@ -159,6 +191,9 @@ class User_Manager_Stage(Stage):
             if self._actual_pose[actual_id].time < min_time:
                 del self._actual_pose[actual_id]
                 continue
+            
+            if self._configs["estimate_missing"]:
+                self._complete(self._actual_pose[actual_id])
 
         self._compute_vel()
         self._compute_accel()

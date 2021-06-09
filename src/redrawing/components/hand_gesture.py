@@ -1,7 +1,7 @@
 from redrawing.components.stage import Stage
 from redrawing.data_interfaces.gesture import Gesture
 from redrawing.data_interfaces.bodypose import BodyPose
-
+from depthai_hand_tracker.HandTracker import HandTracker
 class HandGesture(Stage):
     '''!
         Detects hand gestures.
@@ -17,7 +17,7 @@ class HandGesture(Stage):
 
     def process(self):
         bodypose = self._getInput("bodypose")
-
+        
         #Marcela: detectar os gestos e colocar no resultado
 
         result = Gesture()

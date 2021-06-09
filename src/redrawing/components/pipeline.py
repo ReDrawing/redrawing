@@ -185,8 +185,11 @@ class Pipeline(ABC):
             raise Exception("Stages must be of Stage class")
 
         self.stages.append(stage)
-    
+
     @abstractmethod
+    def create_queue(self, max_size):
+        ...
+
     def create_connection(self, stage_out, id_out, stage_in, id_in, max_size):
         '''!
             Create a connection between stages
@@ -199,7 +202,17 @@ class Pipeline(ABC):
                 @param max_size - Maximum channel queue size
         '''
         
+        queue = None
+        if stage_in.has_input_queue(id_in):
+            queue = stage_in.input_queue[id_in]
+        else:
+            queue = self.create_queue(max_size)
+            stage_in._setInputQueue(queue, id_in)
+
+        stage_out._setOutputQueue(queue, id_out)
+        
         ...
+
 
     @abstractmethod
     def run(self):
@@ -255,24 +268,9 @@ class SingleProcess_Pipeline(Pipeline):
         for stage in self.stages:
                 stage.run()
 
-    def create_connection(self, stage_out, id_out, stage_in, id_in, max_size):
-        '''!
-            Create a connection between stages
-            
-            Uses the SimpleQueue for pass messages
 
-            Parameters:
-                @param stage_out - Stage where the data will come from
-                @param id_out - ID of the output communication channel
-                @param stage_in - Stage from where the data will go
-                @param id_in - ID of the input communication channel
-                @param max_size - Maximum channel queue size
-        '''
-
-        d = SimpleQueue(max_size)
-        
-        stage_out._setOutputQueue(d, id_out)
-        stage_in._setInputQueue(d, id_in)
+    def create_queue(self, max_size):
+        return SimpleQueue(max_size)
 
 class MultiProcess_Pipeline(Pipeline):
     '''!
@@ -282,24 +280,9 @@ class MultiProcess_Pipeline(Pipeline):
     def __init__(self):
         super().__init__()
     
-    def create_connection(self, stage_out, id_out, stage_in, id_in, max_size):
-        '''!
-            Create a connection between stages
-            
-            Uses the ProcessQueue for pass messages
 
-            Parameters:
-                @param stage_out - Stage where the data will come from
-                @param id_out - ID of the output communication channel
-                @param stage_in - Stage from where the data will go
-                @param id_in - ID of the input communication channel
-                @param max_size - Maximum channel queue size
-        '''
-
-        d = ProcessQueue(max_size)
-        
-        stage_out._setOutputQueue(d, id_out)
-        stage_in._setInputQueue(d, id_in)
+    def create_queue(self, max_size):
+        return ProcessQueue(max_size)
 
     def _run_stage(self, stage):
         '''!
@@ -329,6 +312,16 @@ class MultiProcess_Pipeline(Pipeline):
 
             process.append(p)
 
+        while 1:
+            try:
+                pass
+            except KeyboardInterrupt:
+                break
+
+        print("TERMINANDO")
+
         for p in process:
-            p.join()
+            p.terminate()
+            p.join(1)
+            p.close()
         

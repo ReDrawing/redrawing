@@ -20,10 +20,10 @@ keypointDict = {'Nose'  : "NOSE"      ,
                     'Neck'  : "NECK"      ,
                     'R-Sho' : "SHOULDER_R", 
                     'R-Elb' : "ELBOW_R"   , 
-                    'R-Wr' : "WRIST_R"   ,   
+                    'R-Wr'  : "WRIST_R"   ,   
                     'L-Sho' : "SHOULDER_L", 
                     'L-Elb' : "ELBOW_L"   , 
-                    'L-Wr' : "WRIST_L"   ,
+                    'L-Wr'  : "WRIST_L"   ,
                     'R-Hip' : "HIP_R"     , 
                     'R-Knee': "KNEE_R"    , 
                     'R-Ank' : "ANKLE_R"   , 
@@ -39,6 +39,8 @@ keypointDict = {'Nose'  : "NOSE"      ,
 class OAK_BodyPose(OAK_NN_Model):
 
     input_size = [456,256]
+
+    outputs = {"bodypose": list}
 
     def __init__(self):
         self.node = None
@@ -65,7 +67,7 @@ class OAK_BodyPose(OAK_NN_Model):
             oak_stage.cam["rgb"].preview.link(nn_node.input)
         
         self.node = nn_node
-        return nn_node
+        return {"bodypose": nn_node}
 
     def decode_result(self, oak_stage):
         nn_output = oak_stage.nn_output["bodypose"]
@@ -76,17 +78,36 @@ class OAK_BodyPose(OAK_NN_Model):
 def bd_process_result(oak_stage, nn_output):
     poses = process_output(nn_output, 256, 456)
 
+    depth = oak_stage._configs["depth"]
+
+    pixel_space = True
+    if depth:
+        pixel_space = False
+
     bodyposes = []
     for pose in poses:
-        bodypose = BodyPose(pixel_space=True, frame_id=oak_stage._configs["frame_id"])
+        bodypose = BodyPose(pixel_space=pixel_space, frame_id=oak_stage._configs["frame_id"])
 
         for keypoint_name in pose:
             keypoint_key = keypointDict[keypoint_name]
-            bodypose.add_keypoint(keypoint_key, pose[keypoint_name][0], pose[keypoint_name][1])    
+
+            x = pose[keypoint_name][0]
+            y = pose[keypoint_name][1]
+            z = 1.0
+
+            if depth:
+                x_space = oak_stage.get3DPosition(x,y, np.flip(OAK_BodyPose.input_size))
+                x = x_space[0]
+                y = x_space[1]
+                z = x_space[2]
+
+            bodypose.add_keypoint(keypoint_key, x, y, z)    
 
         bodyposes.append(bodypose)
 
     
+
+
     oak_stage._setOutput(bodyposes, "bodypose")
 
 def process_output(nn_output, h, w):

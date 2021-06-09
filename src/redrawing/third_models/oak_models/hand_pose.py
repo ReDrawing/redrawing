@@ -175,7 +175,7 @@ class OAK_Handpose(OAK_Substage):
                 lm_xy = np.expand_dims(np.array([(l[0], l[1]) for l in r.landmarks]), axis=0)
                 lm_xy = np.squeeze(cv2.transform(lm_xy, mat)).astype(np.int)
 
-                bp = BodyPose()
+                bp = BodyPose(frame_id=context["frame_id"], pixel_space=True)
                 for i in range(lm_xy.shape[0]):
                     name = OAK_Handpose.kp_name[i]
                     bp.add_keypoint(name,lm_xy[i][0],lm_xy[i][1])

@@ -164,11 +164,11 @@ class OAK_Blazepose(OAK_Substage):
 
                 continue
 
-            bp = BodyPose()
+            bp = BodyPose(frame_id=context["frame_id"], pixel_space=True)
             bp_3d = None
 
             points = r.landmarks_abs
-            bp_3d = BodyPose()
+            bp_3d = BodyPose(frame_id=context["frame_id"], pixel_space=False)
 
             for i,x_y in enumerate(r.landmarks_padded[:,:2]):
 
@@ -182,7 +182,7 @@ class OAK_Blazepose(OAK_Substage):
 
             bodyposes.append(bp)
             bodyposes_3d.append(bp_3d)
-            
+
         self._setOutput(bodyposes, "bodypose_list")
         self._setOutput(bodyposes_3d, "bodypose3d_list")
             

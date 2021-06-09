@@ -114,6 +114,7 @@ class OAK_Stage(Stage):
         self.set_context("input_queues", self.oak_input_queue)
         self.set_context("camera_intrinsics", self.camera_intrinsics)
         self.set_context("camera_calibration_size", self.camera_calibration_size)
+        self.set_context("get3DPosition", self.get3DPosition)
         
         self.data = {}
         self.frame = {}
@@ -207,10 +208,13 @@ class OAK_Stage(Stage):
 
         n_pixel = 0
 
-        scale = [self._depth_frame.shape[0]/OAK_Stage.color_calib_size[0], self._depth_frame.shape[1]/OAK_Stage.color_calib_size[1]]
+        color_calib_size = self.camera_calibration_size[OAK_Stage.COLOR]
+        color_intrinsic = self.camera_intrinsics[OAK_Stage.COLOR]
+
+        scale = [self._depth_frame.shape[0]/color_calib_size[0], self._depth_frame.shape[1]/color_calib_size[1]]
 
 
-        K = OAK_Stage.color_intrinsic.copy()
+        K = color_intrinsic.copy()
         K[0] *= scale[0]
         K[1] *= scale[1]
 
@@ -368,14 +372,14 @@ class OAK_Stage(Stage):
         if self.preview_size[OAK_Stage.LEFT] != [0,0] or self.depth:
             left_cam = pipeline.createMonoCamera()
             left_cam.setResolution(self._configs["mono_resolution"])
-            left_cam.setBoardSocket(dai.CameraBoardSocket.OAK_Stage.LEFT)
+            left_cam.setBoardSocket(dai.CameraBoardSocket.LEFT)
 
             self.nodes[OAK_Stage.LEFT] = left_cam
 
         if self.preview_size[OAK_Stage.RIGHT] != [0,0] or self.depth:
             right_cam = pipeline.createMonoCamera()
             right_cam.setResolution(self._configs["mono_resolution"])
-            right_cam.setBoardSocket(dai.CameraBoardSocket.OAK_Stage.RIGHT)
+            right_cam.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 
             self.nodes[OAK_Stage.RIGHT] = right_cam
 
@@ -459,15 +463,15 @@ class OAK_Stage(Stage):
         self.links = {}
 
         if self.depth:
-            self.nodes[OAK_Stage.LEFT].link(self.nodes[OAK_Stage.DEPTH].left)
-            self.nodes[OAK_Stage.RIGHT].link(self.nodes[OAK_Stage.DEPTH].right)
+            self.nodes[OAK_Stage.LEFT].out.link(self.nodes[OAK_Stage.DEPTH].left)
+            self.nodes[OAK_Stage.RIGHT].out.link(self.nodes[OAK_Stage.DEPTH].right)
 
             self.data_out[OAK_Stage.DEPTH] = self.nodes[OAK_Stage.DEPTH].depth
 
 
             xout = pipeline.createXLinkOut()
-            xout.setStreamName()
-            self.depth_node.depth.link(xout.input)
+            xout.setStreamName(str(OAK_Stage.DEPTH))
+            self.nodes[OAK_Stage.DEPTH].depth.link(xout.input)
             self.links[OAK_Stage.DEPTH] = xout
 
             if self._configs["depth_host"] == False:

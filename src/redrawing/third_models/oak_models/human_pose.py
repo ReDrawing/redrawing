@@ -3,12 +3,14 @@ import os
 import depthai as dai
 import numpy as np
 import cv2
+from redrawing.components.oak import OAK_Stage
 
 from redrawing.data_interfaces.bodypose import BodyPose
-from redrawing.components.oak_constants import *
-from redrawing.components.oak_model import OAK_NN_Model
+from redrawing.components.oak_substage import OAK_Substage
 import redrawing.third_models.oak_models as oak_models
 from .pose import getKeypoints, getValidPairs, getPersonwiseKeypoints
+
+#https://github.com/luxonis/depthai-experiments/blob/master/gen2-human-pose/main.py
 
 POSE_PAIRS = [[1, 2], [1, 5], [2, 3], [3, 4], [5, 6], [6, 7], [1, 8], [8, 9], [9, 10], [1, 11], [11, 12], [12, 13],
               [1, 0], [0, 14], [14, 16], [0, 15], [15, 17], [2, 17], [5, 16]]
@@ -36,79 +38,91 @@ keypointDict = {'Nose'  : "NOSE"      ,
                     'L-Ear' : "EAR_L"     }
 
 
-class OAK_BodyPose(OAK_NN_Model):
+class OAK_BodyPose(OAK_Substage):
 
-    input_size = [456,256]
+    configs_default = {"3d": False}
 
-    outputs = {"bodypose": list}
+    def __init__(self, configs):
+        if configs["3d"]:
+            uses_depth = True
 
-    def __init__(self):
-        self.node = None
-        
-        self.input_size = OAK_BodyPose.input_size
+        super().__init__(configs, name="bodypose", color_input_size=[456,256], uses_depth=uses_depth)
 
-    def create_node(self, oak_stage):
+        self.addOutput("bodypose_list", list)
+
+        if self._configs["3d"]:
+            self.addOutput("bodypose3d_list", list)
+            
+
+    def create_nodes(self, pipeline):
         base_path = os.path.abspath(oak_models.__file__)
         base_path = base_path[:-11]
         blob_path = base_path + "human-pose-estimation-0001_openvino_2021.2_6shave" +".blob"
 
-        nn_node = oak_stage.pipeline.createNeuralNetwork()
+        nn_node = pipeline.createNeuralNetwork()
         nn_node.setBlobPath(blob_path)
         nn_node.setNumInferenceThreads(2)
         nn_node.input.setQueueSize(1)
         nn_node.input.setBlocking(False)
 
-        if(oak_stage.preview_size["rgb"] != [456, 256]):
-            img_manip = oak_stage.pipeline.createImageManip()
-            img_manip.setResize(456, 256)
-            oak_stage.cam["rgb"].preview.link(img_manip.inputImage)
-            img_manip.out.link(nn_node.input)
-        else:
-            oak_stage.cam["rgb"].preview.link(nn_node.input)
-        
-        self.node = nn_node
         return {"bodypose": nn_node}
 
-    def decode_result(self, oak_stage):
-        nn_output = oak_stage.nn_output["bodypose"]
-        if nn_output is not None:
-            bd_process_result(oak_stage,nn_output)
+    def link(self, pipeline, nodes, rgb_out, left_out, right_out, depth_out):
+        rgb_out.link(nodes["bodypose"].input)
 
+        xout = pipeline.createXLinkOut()
+        xout.setStreamName("bodypose")
+        nodes["bodypose"].out.link(xout.input)
 
-def bd_process_result(oak_stage, nn_output):
-    poses = process_output(nn_output, 256, 456)
+        return {"bodypose": xout}
 
-    depth = oak_stage._configs["depth"]
+    def create_output_queues(self, device):
+        queue = device.getOutputQueue("bodypose", maxSize=1, blocking=False)
 
-    pixel_space = True
-    if depth:
-        pixel_space = False
-
-    bodyposes = []
-    for pose in poses:
-        bodypose = BodyPose(pixel_space=pixel_space, frame_id=oak_stage._configs["frame_id"])
-
-        for keypoint_name in pose:
-            keypoint_key = keypointDict[keypoint_name]
-
-            x = pose[keypoint_name][0]
-            y = pose[keypoint_name][1]
-            z = 1.0
-
-            if depth:
-                x_space = oak_stage.get3DPosition(x,y, np.flip(OAK_BodyPose.input_size))
-                x = x_space[0]
-                y = x_space[1]
-                z = x_space[2]
-
-            bodypose.add_keypoint(keypoint_key, x, y, z)    
-
-        bodyposes.append(bodypose)
-
+        return {"bodypose" : queue}
     
+    def process(self, context):
+        inference = context["output_queues"]["bodypose"].tryGet()    
 
+        if inference is None:
+            return
 
-    oak_stage._setOutput(bodyposes, "bodypose")
+        poses = process_output(inference, 256, 456)
+
+        bodyposes = []
+        bodyposes3d = []
+
+        for pose in poses:
+            bodypose = BodyPose(pixel_space=True, frame_id=context["frame_id"])
+
+            if self._configs["3d"]:
+                bodypose3d = BodyPose()
+
+            for keypoint_name in pose:
+                keypoint_key = keypointDict[keypoint_name]
+
+                x = pose[keypoint_name][0]
+                y = pose[keypoint_name][1]
+                z = 1.0
+                bodypose.add_keypoint(keypoint_key, x, y, z)
+
+                if self._configs["3d"]:
+                    x_space = context["get3DPosition"](x,y, np.flip(self.input_size[OAK_Stage.COLOR]))
+                    x = x_space[0]
+                    y = x_space[1]
+                    z = x_space[2]
+
+                    bodypose3d.add_keypoint(keypoint_key, x, y, z)
+
+            bodyposes.append(bodypose)
+
+            if self._configs["3d"]:
+                bodyposes3d.append(bodypose3d)
+    
+        self._setOutput(bodyposes, "bodypose_list")
+
+        if self._configs["3d"]:
+            self._setOutput(bodyposes3d, "bodypose3d_list")
 
 def process_output(nn_output, h, w):
     heatmaps = np.array(nn_output.getLayerFp16('Mconv7_stage2_L2')).reshape((1, 19, 32, 57))

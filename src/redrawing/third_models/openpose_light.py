@@ -18,6 +18,7 @@ from ..third_models.lightweight_human_modules.image_tools import normalize, pad_
 
 class OpenPose_Light(Stage):
     
+    
     ## Dictionary that maps the model keypoints to the message
     keypointDict = {'nose'  : "NOSE"      , 
                     'neck'  : "NECK"      ,

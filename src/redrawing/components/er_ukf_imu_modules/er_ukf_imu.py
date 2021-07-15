@@ -4,6 +4,18 @@ from scipy.linalg import ldl
 from .ukf import UKF
 
 class ErUkfImu(UKF):
+    '''
+        Unscented Kalman Filter for orientation estimation
+        using a IMU.
+
+        Basead on the papers:
+            Inertial Localization System using UnscentedKalman Filter for 3D Positioning
+            by Zhang and Reindl
+
+            Intertial Head-Tracker Sensor Fusion by a Complementary Separate-Bias Kalman Filter
+            by Eric Foxlin
+    '''
+
     def __init__(self):
         UKF.__init__(self, 6, 3)
 

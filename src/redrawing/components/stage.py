@@ -3,8 +3,7 @@ from copy import deepcopy
 
 class Stage(ABC):
     '''!
-        @todo Stage: ser possível criar inputs e outputs que são vetores de classes Data
-        @todo Stage: verificar se tipo de entrada e saída são instancias de Data
+        Base class for create a stage.
     '''
 
     configs_default = {}
@@ -15,7 +14,8 @@ class Stage(ABC):
 
             Must be called by the subclass constructor
 
-            @todo Verificar alterações na configuração padrão recursivamente
+            Parameters:
+                @param configs - Dictionary with the configurations of the stage
         '''
 
         self.input_dict = {}

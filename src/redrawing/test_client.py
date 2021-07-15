@@ -1,3 +1,7 @@
+'''!
+    Send a bodypose test message.
+'''
+
 import numpy as np
 
 from redrawing.communication.udp import UDP_Stage;

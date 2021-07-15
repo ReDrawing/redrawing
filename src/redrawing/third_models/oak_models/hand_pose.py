@@ -146,8 +146,7 @@ class OAK_Handpose(OAK_Substage):
             for r in self.HandTracker.regions:
                 box = (np.array(r.pd_box) * self.HandTracker.video_size).astype(int)
                 ponto =np.array([[box[0], box[1]], [box[0]+box[2], box[1]+box[3]]])
-                result = ObjectDetection()
-                result.bounding_box = ponto
+                result = ObjectDetection("hand", ponto, context["frame_id"]) 
 
                 results_palm.append(result)
 

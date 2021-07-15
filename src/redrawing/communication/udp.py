@@ -14,6 +14,16 @@ class UDP_Stage(Stage):
                         "inputs": []}
 
     def __init__(self, configs={}):
+        '''!
+            Constructor
+
+            Parameters:
+                @param configs - configs dictionary
+                    ip - the ip for the UDP connection (default 127.0.0.1)
+                    port - the port for the UDP connection (default 6000)
+                    inputs - the inputs channels of the stage (default [])
+                    inputs_list - the inputs channels with list data of the stage (default [])
+        '''
         super().__init__(configs=configs)
 
         for input_channel in self._configs["inputs"]:
@@ -26,6 +36,10 @@ class UDP_Stage(Stage):
         self.addInput("send_msg_list", list)
 
     def setup(self):
+        '''!
+            Initializes the stage.
+        '''
+
         self._config_lock = True
         self.ip = self._configs["ip"]
         self.port = self._configs["port"]

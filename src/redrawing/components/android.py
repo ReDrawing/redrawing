@@ -10,17 +10,31 @@ from redrawing.data_interfaces.imu import IMU
 from redrawing.data_interfaces.image import Image
 
 class CameraReceiver(Stage):
+    '''!
+        Receives frames from a IP camera
+    '''
 
     configs_default = {"ip": "192.168.2.101",
                         "port": "8080",
                         "frame_id": "UNKNOW"}
 
     def __init__(self, configs={}):
+        '''!
+            Constructor
+
+            @param configs:
+                ip: IP camera address (default: 192.168.2.101)
+                port: IP camera port (default: 8080)
+                frame_id: frame id (default: UNKNOW)
+        '''
         super().__init__(configs)
         self.addOutput("frame", Image)
         
     
     def setup(self):
+        '''!
+            Initializes the stage
+        '''
         self._config_lock = True
 
         self._ip = self._configs["ip"]
@@ -34,6 +48,9 @@ class CameraReceiver(Stage):
 
 
     def process(self, context={}):
+        '''!
+            Receives the frame and puts it in the output
+        '''
         
         ret, frame = self.cap.read()
 
@@ -42,17 +59,34 @@ class CameraReceiver(Stage):
         self._setOutput(img, "frame")
 
 class IMUReceiver(Stage):
+    '''!
+        Receives data from a IMU sensor in a smartphone 
+
+        Use with 'IP Webcam' android app
+    '''
 
     configs_default = {"ip": "192.168.2.101",
                         "port": "8080",
                         "frame_id": "UNKNOW"}
 
     def __init__(self, configs={}):
+        '''!
+            Constructor
+
+            @param configs:
+                ip: smartphone address (default: 192.168.2.101)
+                port: smartphone port (default: 8080)
+                frame_id: smartphone IMU frame id (default: UNKNOW)
+        '''
 
         super().__init__(configs)
         self.addOutput("imu", IMU)
     
     def setup(self):
+        '''!
+            Initializes the stage
+        '''
+
         self._config_lock = False
 
         self._ip = self._configs["ip"]
@@ -61,6 +95,11 @@ class IMUReceiver(Stage):
 
     
     def process(self, context={}):
+        '''!
+            Receives the IMU data and puts it in the output
+
+            Receive accelerometer, gyroscope and magnetometer data
+        '''
         url = "http://"+self._ip+":"+self._port+"/sensors.json"
 
         time = None

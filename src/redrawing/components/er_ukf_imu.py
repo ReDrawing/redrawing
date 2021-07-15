@@ -11,7 +11,10 @@ from redrawing.components.er_ukf_imu_modules.er_ukf_imu import ErUkfImu
 
 class UKF_IMU(Stage):
     '''!
-        @todo UKF_IMU: atualizar estágios apenas quando houver alteração de entradas (ver original em cti_sensors)
+        Unscented Kalman Filter Stage for orientation estimation
+        using IMU sensor.
+
+        See the ErUkfImu class for more information.
     '''
     configs_default = {"gravity": 9.78613,
                         "magneticIntensity": 22902.5e-9,
@@ -19,7 +22,16 @@ class UKF_IMU(Stage):
                         "frame_id" : "PASS"}
 
     def __init__(self, configs={}):
+        '''!
+            Constructor
 
+            @param configs:
+                Local data 
+                gravity: gravity intensity (m/s^2) (default: 9.78613)
+                magneticIntensity: magnetic intensity (T) (default: 22902.5e-9)
+                inclination: inclination angle (degree) (default: -39.2722)
+                frame_id: frame id of the IMU sensor (default: "PASS", use the frame from the IMU data)
+        '''
         super().__init__(configs)
 
         self.addInput("imu", IMU)
@@ -28,6 +40,9 @@ class UKF_IMU(Stage):
         
 
     def setup(self):
+        '''!
+            Initialize the filter.
+        '''
         self._config_lock = True
 
         self._gravity = self._configs["gravity"]
@@ -46,63 +61,98 @@ class UKF_IMU(Stage):
         self.measurementHandler = MeasurementHandler(self._magneticIntensity, self._inclination, self._gravity)
         self.ukf = ErUkfImu()
 
+        self.data_changed = False
+
 
     def _parse_inputs(self):
-        imu = self._getInput("imu")
-        self._gyro = imu.gyro
-        self._accel = imu.accel
-        self._mag = imu.mag
+        '''!
+            Get and store the inputs.
+        '''
+        if self.has_input("imu"):
+            imu = self._getInput("imu")
+            self._gyro = imu.gyro
+            self._accel = imu.accel
+            self._mag = imu.mag
         
-        self._frame_id = imu.frame_id
+            self._frame_id = imu.frame_id
         
-        time = imu.time
-        self._deltaT = time-self._last_time
-        self._last_time = time
+            time = imu.time
+            self._deltaT = time-self._last_time
+            self._last_time = time
 
-        if(self._deltaT == 0):
-            self._deltaT = 0.0000001
+            if(self._deltaT == 0):
+                self._deltaT = 0.0000001
+            self.data_changed = True
+        else:
+            self.data_changed = False
 
 
     def _pass_inputs(self):
-        self.gyroErrorCompensation.setMeasuredOmega(self._gyro)
-        self.measurementHandler.setAccelRead(np.copy(self._accel))
-        self.measurementHandler.setMagRead(self._mag)
+        '''!
+            Pass inputs to the modules.
+        '''
+        if self.data_changed:
+            self.gyroErrorCompensation.setMeasuredOmega(self._gyro)
+            self.measurementHandler.setAccelRead(np.copy(self._accel))
+            self.measurementHandler.setMagRead(self._mag)
 
-    def _kalman_process(self, context={}):
-        self.ukf.setMeasurement(self.measurementHandler.getErrorMeasurement())
-        self.ukf.setEstimateOmega(self.gyroErrorCompensation.getCorrectedOmega())
-        self.ukf.setEstimateTheta(self.attitudeComputation.getTheta())
+    def _kalman_process(self):
+        '''!
+            Update the filter.
+        '''
+        if self.data_changed:
+            self.ukf.setMeasurement(self.measurementHandler.getErrorMeasurement())
+            self.ukf.setEstimateOmega(self.gyroErrorCompensation.getCorrectedOmega())
+            self.ukf.setEstimateTheta(self.attitudeComputation.getTheta())
 
-        try:
-            self.ukf.compute(self._deltaT)
+            try:
+                self.ukf.compute(self._deltaT)
 
-            self.attitudeComputation.setThetaError(self.ukf.getThetaError())
-            self.gyroErrorCompensation.setPredictedOmegaError(self.ukf.getOmegaError())
-        
-        except Exception as e:
-            print("Filtro gerou excecao: "+str(e)+". Reiniciando filtro")
-            self.ukf = ErUkfImu()
+                self.attitudeComputation.setThetaError(self.ukf.getThetaError())
+                self.gyroErrorCompensation.setPredictedOmegaError(self.ukf.getOmegaError())
+            
+            except Exception as e:
+                print("Filtro gerou excecao: "+str(e)+". Reiniciando filtro")
+                self.ukf = ErUkfImu()
 
-    def _orientation_process(self, context={}):
-        omega = self.gyroErrorCompensation.getCorrectedOmega()
+    def _orientation_process(self):
+        '''!
+            Computes the orientation.
+        '''
+        if self.data_changed:
+            omega = self.gyroErrorCompensation.getCorrectedOmega()
 
-        self.attitudeComputation.setOmega(omega)
-        self.attitudeComputation.computeAll(self._deltaT)
+            self.attitudeComputation.setOmega(omega)
+            self.attitudeComputation.computeAll(self._deltaT)
 
-        self._theta = self.attitudeComputation.getTheta()
+            self._theta = self.attitudeComputation.getTheta()
 
-        self.measurementHandler.setTheta(self._theta)
+            self.measurementHandler.setTheta(self._theta)
     
     def thetaToRotation(self, theta):
+        '''!
+            Convertes a angle in euler form to a Rotation object.
+
+            @param theta: angle in euler form (rad)
+        '''
         return Rotation.from_euler('xyz',theta)
 
     def thetaToQuat(self, theta):
+        '''
+            Convertes a angle in euler form to a quaternion vector.
+
+            @param theta: angle in euler form (rad)
+        '''
         r = self.thetaToRotation(theta)
         quat = r.as_quat()
 
         return quat
 
     def _update_output(self):
+        '''!
+            Update the outputs.
+        '''
+
         rotation = self.thetaToRotation(self._theta)
 
         frame_id = self._frame_id
@@ -117,6 +167,10 @@ class UKF_IMU(Stage):
         self._setOutput(orientation, "orientation")
 
     def _compute_PureAccel(self):
+        '''!
+            Computes the acelleration without the gravity.
+        '''
+
         grav = np.array([0,0,self.gravity], dtype=np.float64)
         
         r = self.thetaToRotation(self._theta)
@@ -126,6 +180,10 @@ class UKF_IMU(Stage):
         pureAcceleration = self._accel - grav
 
     def process(self, context={}):
+        '''!
+            Execute all the steps to compute orientation
+        '''
+
         self._parse_inputs()
         self._pass_inputs()
         self._kalman_process()

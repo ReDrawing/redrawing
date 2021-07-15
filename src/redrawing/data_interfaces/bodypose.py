@@ -112,6 +112,8 @@ class BodyPose(Data):
             Parameters:
                 @param pixels_space (boolean): True if the keypoints are in camera pixel (2D) space, false if its in 3D metric space
                 @param frame_id (string): The name of the coordinate system where keypoints are
+                @param user_id (string): The id of the pose corresponding user
+                @param time (float): The time of the pose detection
         '''
         if time == -1:
             time = tm.time()
@@ -129,24 +131,39 @@ class BodyPose(Data):
 
     @property
     def frame_id(self):
+        '''!
+            Frame id getter.
+        '''
         return self._frame_id
 
     @frame_id.setter
     def frame_id(self, value):
+        '''!
+            Frame id setter.
+        '''
         if isinstance(value, str):
             self._frame_id = value
     
     @property
     def user_id(self):
+        '''!
+            User id getter.
+        '''
         return self._user_id
 
     @user_id.setter
     def user_id(self, value):
+        '''!
+            User id setter.
+        '''
         if isinstance(value, str):
             self._user_id = value
 
     @property
     def time(self):
+        '''!
+            Time getter.
+        '''
         return self._time
     
     def add_keypoint(self, name, x, y, z=1.0, covariance=np.zeros((3,3))):
@@ -158,7 +175,7 @@ class BodyPose(Data):
                 @param x (float): keypoint x position
                 @param y (float): keypoint y position
                 @param z (float): keypoint z position. Default is 1.0 for pixel space keypoints
-
+                @param covariance (3x3 matrix): position covariance matrix. Default is identity matrix.
         '''
 
         if name not in self._keypoints_names:
@@ -179,16 +196,29 @@ class BodyPose(Data):
         self._covariance[name] = covariance
         
 
-    def add_keypoint_array(self, name, array):
+    def add_keypoint_array(self, name, array, covariance=np.zeros((3,3))):
+        '''!
+            Define the pose of a keypoint.
+
+            Parameters:
+                @param name (string): the name of the keypoints. Must be in keypoints_names list
+                @param array (list of float): list of keypoint x,y,z positions
+                @param covariance (3x3 matrix): position covariance matrix. Default is identity matrix.
+        '''
         if name not in self._keypoints_names:
             raise AttributeError("BodyPose has no keypoint "+str(name))
+        
+        if isinstance(covariance, list):
+            covariance = np.array(covariance)
+        if covariance.shape != (3,3):
+            raise Exception("Covariance must be a 3x3 matrix")
 
         if isinstance(array, np.ndarray):
             self._keypoints[name] = array
         elif isinstance(array,list):
             self._keypoints[name] = np.array(array,dtype=np.float64)
-
-        pass
+        
+        self._covariance[name] = covariance
 
     def __getattr__(self, name):
 
@@ -207,6 +237,9 @@ class BodyPose(Data):
             self._keypoints[name] = value
 
     def get_covariance(self, name):
+        '''!
+            Return the covariance of a keypoint
+        '''
         return self._covariance[name]
 
     def get_keypoint(self, name):
@@ -234,6 +267,14 @@ class BodyPose(Data):
         del self.keypoints[name]
 
     def apply_transformation(self, R, t, new_frame_id):
+        '''!
+            Apply a transformation to the pose.
+
+            Parameters:
+                @param R (3x3 matrix): rotation matrix
+                @param t (3x1 matrix): translation vector
+                @param new_frame_id (string): new frame id
+        '''
         for name in self._keypoints:
             if self._keypoints[name] is None:
                 continue
@@ -244,6 +285,11 @@ class BodyPose(Data):
 
     @staticmethod
     def distance(bodypose1, bodypose2):
+        '''!
+            Compute the distance between two BodyPose objects.
+            The distance is computed as the Euclidean distance between the keypoints,
+            and only for keypoints that are defined in both bodyposes.
+        '''
         dist = 0.0
         count = 0
 
@@ -261,12 +307,27 @@ class BodyPose(Data):
         return dist
 
 class BodyVel(BodyPose):
+    '''!
+        This class stores the velocity of a body pose.
+    '''
+
     def __init__(self, pixel_space=False, frame_id='UNKOWN', user_id='UNKOWN', time=tm.time()):
+        '''!
+            BodyVel constructor
+
+            Parameters:
+                @param pixels_space (boolean): True if the keypoints are in camera pixel (2D) space, false if its in 3D metric space
+                @param frame_id (string): The name of the coordinate system where keypoints are
+                @param user_id (string): The id of the body corresponding user
+                @param time (float): The time of the velocity detection
+        '''
+
         super().__init__(pixel_space=pixel_space, frame_id=frame_id, user_id=user_id, time=time)
 
     @classmethod
     def from_bodyposes(cls, bodypose, bodypose_last):
         '''!
+            Create a BodyVel object from two BodyPose objects.
             @todo Calcular covariância a partir da covariância das posições
         '''
         
@@ -289,12 +350,31 @@ class BodyVel(BodyPose):
 
 
 class BodyAccel(BodyPose):
+    '''!
+        This class stores the acceleration of a body pose.
+    '''
+
     def __init__(self, pixel_space=False, frame_id='UNKOWN', user_id='UNKOWN', time=tm.time()):
+        '''!
+            BodyAccel constructor
+
+            Parameters:
+                @param pixels_space (boolean): True if the keypoints are in camera pixel (2D) space, false if its in 3D metric space
+                @param frame_id (string): The name of the coordinate system where keypoints are
+                @param user_id (string): The id of the body corresponding user
+                @param time (float): The time of the acceleration detection
+        '''
+
         super().__init__(pixel_space=pixel_space, frame_id=frame_id, user_id=user_id, time=time)
 
     @classmethod
     def from_bodyvel(cls, bodyvel, bodyvel_last):
         '''!
+            Create a BodyAccel object from two BodyVel objects.
+
+            Returns:
+                @return body_accel (BodyAccel): the body accel object
+
             @todo Calcular covariância a partir da covariância das velocidades
         '''
 

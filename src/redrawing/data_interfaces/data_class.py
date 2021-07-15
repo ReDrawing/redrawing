@@ -35,12 +35,22 @@ class Data(ABC):
     '''
 
     def __init__(self, time = 0):
+        '''!
+            Constructor for Data class
+
+            Parameters:
+                @param time (float): time of message creation
+        '''
+
         self._time = time
         pass
 
     def toJSON(self):
         '''!
             Convert object to JSON
+
+            Returns:
+                @returns JSON encoded object
         '''
 
         self.__time = time.time()
@@ -53,6 +63,9 @@ class Data(ABC):
     def toMessage(self):
         '''!
             Converct object to JSON encoded ready to send message
+
+            Returns:
+                @returns string encoded message
         '''
         msg = self.toJSON()
         msg = msg.replace('\"__','\"')

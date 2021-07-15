@@ -10,10 +10,20 @@ from redrawing.data_interfaces.image import Image
 
 
 class PCR_Viewer(Stage):
+    '''!
+        Visualizer for image, depth and body pose data.
+    '''
     
     configs_default = {"bodypose":False}
 
     def __init__(self, configs={}):
+        '''!
+            Constructor
+
+            Parameters:
+                @param configs: dictionary of configurations
+                    bodypose: if should show body pose data (default: False)
+        '''
         super().__init__(configs)
         self.addInput("depth", Depth_Map)
         self.addInput("rgb", Image)
@@ -28,6 +38,9 @@ class PCR_Viewer(Stage):
 
 
     def setup(self):
+        '''!
+            Initialize the stage.
+        '''
         self._config_lock = True
 
         self.depth = None
@@ -46,14 +59,12 @@ class PCR_Viewer(Stage):
 
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.3, origin=[0, 0, 0])
         self.vis.add_geometry(origin)
-
-
-        
-
-
         
 
     def process(self, context={}):
+        '''!
+            Draw the inputs.
+        '''
         
         changed = False
 

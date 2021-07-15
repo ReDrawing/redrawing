@@ -12,7 +12,7 @@ from redrawing.data_interfaces.image import Image
 
 class OAK_Stage(Stage):
     '''!
-        @todo Ler intrinsics da câmera do EEPROM dela, quando implementado pela depthai
+       Handles a OAK camera
     '''
 
     COLOR = 0
@@ -44,7 +44,19 @@ class OAK_Stage(Stage):
             OAK_Stage constructor.
 
             Parameters:
-                @param configs : dict = The configurations changes from the defaults configs of the stage
+                @param configs : a dictionary with the configuration values
+                    framed_id: the camera frame id (default: "oak")
+                    color_out: if the color camera should be used (default: False)
+                    color_resolution: the resolution of the color camera (default: THE_1080_P)
+                    color_size: the size of the color camera output (default: 1280x720)
+                    mono_resolution: the resolution of the mono camera (default: THE_400_P)
+                    depth: whether depth output is to be output (default: False)
+                    depth_close: whether to use the close depth mode (default: False)
+                    depth_far: whether to use the far depth mode (default: False)
+                    depth_filtering: the depth filtering mode (default: "")
+                    depth_point_mode: the mode to compute the depth of a point (default: "median")
+                    depth_roi_size: the size of the side of the roi to compute the depth (default: 50)
+                    depth_host: if the depth of a point should be computed in the host (default: True)
         '''
         super().__init__(configs)
 
@@ -68,10 +80,12 @@ class OAK_Stage(Stage):
         '''!
             Configs the OAK stage.
 
-            Creates the pipeline for the OAK with all the camera and NN nodes, 
-            initiate and creates the queues
+            Creates the pipeline for the OAK, 
+            creating all the nodes and substage nodes needed,
+            linking them, initializing the device 
+            and creating the queues.
 
-            @todo Criar nó para as câmeras monocromáticas
+            Also gets the calibration data
         '''
 
         self._config_lock = True
@@ -187,7 +201,12 @@ class OAK_Stage(Stage):
 
     def get3DPosition(self, point_x,point_y, size):
         '''!
-            @todo Alterar setup para alinhar o depth com o centro, e utilizar intrisics apropriadas
+            Copmutes the 3D postiion of a point in the image.
+
+            Parameters:
+                @param point_x: x coordinate of the point
+                @param point_y: y coordinate of the point
+                @param size: size of the image of the coordinates
         '''
 
         try:
@@ -334,11 +353,17 @@ class OAK_Stage(Stage):
         return x_space/1000.0
         
     def __del__(self):
+        '''!
+            Closes the device
+        '''
         if self._device is not None:
             self._device.close()
 
 
     def _set_preview_size(self):
+        '''!
+            Sets the preview size for the cameras
+        '''
         if self._configs["color_out"]:
             self.preview_size[OAK_Stage.COLOR] = self._configs["color_size"]
 
@@ -357,6 +382,12 @@ class OAK_Stage(Stage):
             self.addOutput("color", Image)
     
     def _create_cameras(self, pipeline):
+        '''!
+            Creates the cameras nodes.
+
+            Parameters:
+                @param pipeline: The pipeline to add the cameras to
+        '''
         if self.preview_size[OAK_Stage.COLOR] != [0,0]:
             color_cam = pipeline.createColorCamera()
             color_cam.setPreviewSize(self.preview_size[OAK_Stage.COLOR][0], self.preview_size[OAK_Stage.COLOR][1])
@@ -384,6 +415,12 @@ class OAK_Stage(Stage):
             self.nodes[OAK_Stage.RIGHT] = right_cam
 
     def _create_substages_nodes(self, pipeline):
+        '''!
+            Creates the substages nodes.
+
+            Parameters:
+                @param pipeline: The pipeline to add the nodes to
+        '''
         for substage in self.substages:
             nodes = substage.create_nodes(pipeline)
 
@@ -394,6 +431,16 @@ class OAK_Stage(Stage):
                 self.nodes[key] = nodes[key]
 
     def _create_depth(self, pipeline, using_nn):
+        '''!
+            Creates the depth node.
+
+            Uses the appropiate settings for the configs and existing pipeline.
+
+            Parameters:
+                @param pipeline: The pipeline to add the node to
+                @param using_nn: Whether the pipeline is using a neural network or not
+        '''
+
         if self.depth:
 
             depth_node = pipeline.createStereoDepth()
@@ -407,8 +454,8 @@ class OAK_Stage(Stage):
                 depth_node.setSubpixel(True)
                 depth_node.setExtendedDisparity(False)
             else:
-                #depth_node.setDepthAlign(dai.CameraBoardSocket.RGB)
-                depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
+                depth_node.setDepthAlign(dai.CameraBoardSocket.RGB)
+                #depth_node.setDepthAlign(dai.StereoDepthProperties.DepthAlign.CENTER)
                 depth_node.setSubpixel(False)
                 depth_node.setExtendedDisparity(False)
 
@@ -431,6 +478,14 @@ class OAK_Stage(Stage):
                 self.nodes["spartial_location_calculator"] = spatialLocationCalculator
 
     def _create_manips(self, pipeline):
+        '''!
+            Creates the image manips nodes to resize the images for the nodes.
+
+            Also defines which image output to use in each node.
+
+            Parameters:
+                @param pipeline: The pipeline to add the nodes to
+        '''
         self.data_out = {}
 
         for substage in self.substages:
@@ -460,6 +515,12 @@ class OAK_Stage(Stage):
                         self.data_out[substage][cam] = self.nodes[cam].out
 
     def _link(self, pipeline):
+        '''!
+            Links the nodes in the pipeline
+
+            Parameters:
+                @param pipeline: The pipeline 
+        '''
         self.links = {}
 
         if self.depth:
@@ -507,6 +568,12 @@ class OAK_Stage(Stage):
                 self.links[key] = links[key]
 
     def _create_queues(self, device):
+        '''!
+            Creates the output queues of the OAK
+
+            Parameters:
+                @param device: The device to create the queues for
+        '''
         self.oak_input_queue = {}
         self.oak_output_queue = {}
         
@@ -536,6 +603,12 @@ class OAK_Stage(Stage):
                 self.oak_input_queue[key] = in_queues[key]
 
     def _read_calibration(self, device):
+        '''!
+            Reads the calibration data from the device
+
+            Parameters:
+                @param device: The device to read the calibration from
+        '''
         self.camera_intrinsics = {}
         self.camera_calibration_size = {}
 

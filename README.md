@@ -49,10 +49,9 @@ For exchange data with client applications, the UDP_Stage can be used, using UDP
 - [Tiago Fernandes Tavares](https://github.com/tiagoft)
 - [Thiago Danilo Silva de Lacerda](https://github.com/ThiagoDSL)
 
-Made with the support of "Conselho Nacional de Desenvolvimento Científico e Tecnológico" (CNPq) of Brazil
-
-## License 
+## Legal
 Copyright (c) 2021 ReDrawing Campinas AUTHORS
 
 Submodules in ai_models/third_models submodules can be licensed under other licenses. A copy of the respective license can be found in the submodule folder.
 
+Made with the support of "Conselho Nacional de Desenvolvimento Científico e Tecnológico" (CNPq) of Brazil

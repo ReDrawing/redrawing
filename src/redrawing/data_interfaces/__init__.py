@@ -5,3 +5,4 @@ from .gesture import Gesture
 from .image import Image
 from .imu import IMU, Orientation
 from .object_detection import ObjectDetection
+from .depth_map import Depth_Map

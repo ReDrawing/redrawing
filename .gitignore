@@ -14,3 +14,6 @@ src/redrawing/data_interfaces/__pycache__/image.cpython-38.pyc
 src/redrawing/data_interfaces/__pycache__/imu.cpython-38.pyc
 src/redrawing/data_interfaces/__pycache__/object_detection.cpython-38.pyc
 src/redrawing/third_models/oak_models/__pycache__/__init__.cpython-38.pyc
+*.whl
+*.gz
+dist/

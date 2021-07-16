@@ -1,7 +1,5 @@
 import time
 
-import pykalman
-
 from redrawing.components.stage import Stage
 from redrawing.data_interfaces.bodypose import *
 from redrawing.data_interfaces.frame import Frame_TF

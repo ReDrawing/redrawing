@@ -1,0 +1,9 @@
+numpy
+scipy
+matplotlib
+opencv-python
+depthai>=2.5.0
+open3d
+
+[LightweightOpenPose]
+torch

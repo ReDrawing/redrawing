@@ -52,6 +52,6 @@ For exchange data with client applications, the UDP_Stage can be used, using UDP
 ## Legal
 Copyright (c) 2021 ReDrawing Campinas AUTHORS
 
-Submodules in ai_models/third_models submodules can be licensed under other licenses. A copy of the respective license can be found in the submodule folder.
+Submodules in ai_models/third_models submodules may be licensed under other licenses. A copy of the respective license can be found in the submodule folder.
 
 Made with the support of "Conselho Nacional de Desenvolvimento Científico e Tecnológico" (CNPq) of Brazil

@@ -1,6 +1,6 @@
 import numpy as np
 from collections import namedtuple
-import redrawing.third_models.oak_models.mediapipe_utils_hand as mpu
+from . import mediapipe_utils as mpu
 import depthai as dai
 import cv2
 from pathlib import Path

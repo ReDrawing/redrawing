@@ -1,0 +1,3 @@
+recursive-include * *.blob *.pth
+
+recursive-include * LICENSE license

@@ -20,7 +20,24 @@ class Gesture(Data):
             Gesture constructor.
             @param gesture: The gesture name.
         '''
-        self.gesture = gesture
+        
         super().__init__()
         
         self._gesture = gesture
+
+    @property
+    def gesture(self):
+        '''!
+            Gesture name.
+            @return: The gesture name.
+        '''
+        return self._gesture
+
+    @gesture.setter
+    def gesture(self, gesture):
+        '''!
+            Gesture name setter.
+            @param gesture: The gesture name.
+        '''
+        self._gesture = gesture
+        

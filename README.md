@@ -6,6 +6,14 @@ Python package provinding tools for artistic interactive applications using AI
 
 Created by ReDrawing Campinas team for the OpenCV AI 2021 Competition.
 
+
+## Installation
+
+```
+python -m pip install --upgrade pip
+python -m pip install redrawing
+```
+
 ## Stages
 
 Stages are the basic processing units of the redrawing package. They receive data objects from input channels, processes them and output data in the output channels.

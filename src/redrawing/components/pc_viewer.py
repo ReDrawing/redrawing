@@ -1,7 +1,6 @@
 import open3d as o3d
 import numpy as np
 import cv2 as cv
-
 from redrawing.components.stage import Stage
 from redrawing.data_interfaces.bodypose import BodyPose
 from redrawing.data_interfaces.depth_map import Depth_Map
@@ -27,7 +26,6 @@ class PCR_Viewer(Stage):
         super().__init__(configs)
         self.addInput("depth", Depth_Map)
         self.addInput("rgb", Image)
-
         if self._configs["bodypose"]:
             self.addInput("bodypose", BodyPose)
             self.addInput("bodypose_list",list)

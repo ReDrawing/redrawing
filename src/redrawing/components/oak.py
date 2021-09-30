@@ -106,7 +106,7 @@ class OAK_Stage(Stage):
         #Instantiate depth
         using_nn = False
         for node in self.nodes:
-            if isinstance(self.nodes[node], dai.NeuralNetwork):
+            if isinstance(self.nodes[node], dai.node.NeuralNetwork):
                 using_nn = True
                 break
 

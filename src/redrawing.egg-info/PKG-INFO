@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: redrawing
-Version: 1.0.2
+Version: 1.0.3
 Summary: Python package provinding tools for artistic interactive applications using AI
 Home-page: https://github.com/ReDrawing/redrawing
 Author: ReDrawing Campinas
@@ -8,6 +8,72 @@ Author-email: redrawing.campinas@cti.gov.br
 License: MIT License
 Project-URL: Bug Tracker, https://github.com/ReDrawing/redrawing/issues
 Project-URL: Documentation, https://redrawing.github.io/docs/
+Description: [Documentation](https://redrawing.github.io/docs/)
+        
+        # redrawing
+        
+        Python package provinding tools for artistic interactive applications using AI
+        
+        Created by ReDrawing Campinas team for the OpenCV AI 2021 Competition.
+        
+        
+        ## Installation
+        
+        ```
+        python -m pip install --upgrade pip
+        python -m pip install redrawing
+        ```
+        
+        ## Stages
+        
+        Stages are the basic processing units of the redrawing package. They receive data objects from input channels, processes them and output data in the output channels.
+        
+        Examples of stages:
+        
+        Stage name | Use
+        --- | ---
+        OAK_Stage | Handles a OAK camera. Can be changed using OAK_Substages, like a Body detector or a Hand gesture detector
+        PCR_Viewer | Visualizer for image, depth and body pose data
+        CameraReceiver/IMUReceiver | Receives data from a smarthphone
+        UKF_IMU | UKF filter for orientation estimation using IMU data
+        
+        ## Data and communication
+        
+        All inter stage data communication occours using Data classes.
+        
+        Examples of data classes:
+        
+        Data class | Use
+        --- | ---
+        BodyPose | Stores body pose data (keypoints)
+        Image | Stores image data
+        Depth_Map | Stores depth data
+        IMU | Stores IMU data
+        
+        For exchange data with client applications, the UDP_Stage can be used, using UDP protocol with JSON converted messages. We also have client libraries for receiving and decoding data:
+        
+        - [redrawing_java](https://github.com/ReDrawing/redrawing_java): client library for Java
+        - ReDrawing for Processing: client library for Processing, encapsulates the redrawing_java library
+        
+        # Authors
+        - [Artemis Sanchez Moroni](https://github.com/ArtemisMoroni)
+        - [Cássio Gião Dezzotti](https://github.com/cassiodezotti)
+        - [Daniele Souza Gonçalves](https://github.com/danielegsouza)
+        - [Elton Cardoso do Nascimento](https://github.com/EltonCN)
+        - [Gabriel Tadao Kuae](https://github.com/kuta-ga)
+        - [Jônatas Manzolli]()
+        - [Marcela Medicina](https://github.com/mmedicina)
+        - [Pedro Victor Vieira de Paiva](https://github.com/enemy537)
+        - [Tiago Fernandes Tavares](https://github.com/tiagoft)
+        - [Thiago Danilo Silva de Lacerda](https://github.com/ThiagoDSL)
+        
+        ## Legal
+        Copyright (c) 2021 ReDrawing Campinas AUTHORS
+        
+        Submodules in ai_models/third_models submodules may be licensed under other licenses. A copy of the respective license can be found in the submodule folder.
+        
+        Made with the support of "Conselho Nacional de Desenvolvimento Científico e Tecnológico" (CNPq) of Brazil
+        
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
@@ -17,65 +83,4 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
-Provides-Extra: LightweightOpenPose
-License-File: LICENSE.md
-
-[Documentation](https://redrawing.github.io/docs/)
-
-# redrawing
-
-Python package provinding tools for artistic interactive applications using AI
-
-Created by ReDrawing Campinas team for the OpenCV AI 2021 Competition.
-
-## Stages
-
-Stages are the basic processing units of the redrawing package. They receive data objects from input channels, processes them and output data in the output channels.
-
-Examples of stages:
-
-Stage name | Use
---- | ---
-OAK_Stage | Handles a OAK camera. Can be changed using OAK_Substages, like a Body detector or a Hand gesture detector
-PCR_Viewer | Visualizer for image, depth and body pose data
-CameraReceiver/IMUReceiver | Receives data from a smarthphone
-UKF_IMU | UKF filter for orientation estimation using IMU data
-
-## Data and communication
-
-All inter stage data communication occours using Data classes.
-
-Examples of data classes:
-
-Data class | Use
---- | ---
-BodyPose | Stores body pose data (keypoints)
-Image | Stores image data
-Depth_Map | Stores depth data
-IMU | Stores IMU data
-
-For exchange data with client applications, the UDP_Stage can be used, using UDP protocol with JSON converted messages. We also have client libraries for receiving and decoding data:
-
-- [redrawing_java](https://github.com/ReDrawing/redrawing_java): client library for Java
-- ReDrawing for Processing: client library for Processing, encapsulates the redrawing_java library
-
-# Authors
-- [Artemis Sanchez Moroni](https://github.com/ArtemisMoroni)
-- [Cássio Gião Dezzotti](https://github.com/cassiodezotti)
-- [Daniele Souza Gonçalves](https://github.com/danielegsouza)
-- [Elton Cardoso do Nascimento](https://github.com/EltonCN)
-- [Gabriel Tadao Kuae](https://github.com/kuta-ga)
-- [Jônatas Manzolli]()
-- [Marcela Medicina](https://github.com/mmedicina)
-- [Pedro Victor Vieira de Paiva](https://github.com/enemy537)
-- [Tiago Fernandes Tavares](https://github.com/tiagoft)
-- [Thiago Danilo Silva de Lacerda](https://github.com/ThiagoDSL)
-
-## Legal
-Copyright (c) 2021 ReDrawing Campinas AUTHORS
-
-Submodules in ai_models/third_models submodules may be licensed under other licenses. A copy of the respective license can be found in the submodule folder.
-
-Made with the support of "Conselho Nacional de Desenvolvimento Científico e Tecnológico" (CNPq) of Brazil
-
-
+Provides-Extra: lightweightopenpose
